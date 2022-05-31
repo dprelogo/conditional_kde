@@ -147,9 +147,9 @@ class ConditionalKernelDensity(KernelDensity):
                 / (2 * self.bandwidth**2)
             )
             weights /= np.sum(weights)
-            i = rs.choice(data.shape[0], n_samples, p=weights)
+            idx = rs.choice(data.shape[0], n_samples, p=weights)
 
-            sample = np.atleast_2d(rs.normal(data[i], self.bandwidth))
+            sample = np.atleast_2d(rs.normal(data[idx], self.bandwidth))
             sample = self.dw.unwhiten(sample)
 
             if keep_dims is False:
