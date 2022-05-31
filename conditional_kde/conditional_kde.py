@@ -1,7 +1,7 @@
 """Main module."""
 import numpy as np
 from sklearn.neighbors import KernelDensity
-from .utils import DataWhitener
+from .util import DataWhitener
 
 
 class ConditionalKernelDensity(KernelDensity):
@@ -32,7 +32,7 @@ class ConditionalKernelDensity(KernelDensity):
         if kernel != "gaussian":
             raise NotImplementedError("Not implemented for a non-gaussian kernel.")
 
-        self.rescale = rescale
+        self.algorithm = "rescale" if rescale else None
 
         super(ConditionalKernelDensity, self).__init__(
             bandwidth=bandwidth,
@@ -50,23 +50,36 @@ class ConditionalKernelDensity(KernelDensity):
     def log_scott(n_samples, n_features):
         return -1 / (n_features + 4) * np.log10(n_samples)
 
-    def fit(self, X, optimal_bandwidth=True, **kwargs):
+    def fit(self, X, optimal_bandwidth=True, features=None, **kwargs):
         """Fitting the Conditional Kernel Density.
         Args:
             X (array): data of shape `(n_samples, n_features)`.
             optimal_bandwidth (bool): if `True`, uses Scott's parameter
                 for the bandwith. For the best results, use with
-                `rescale = True`.
+                `rescale=True`.
+            features (list): optional, list defining names for every feature.
+                It's used for referencing conditional dimensions.
+                Defaults to `[0, 1, ..., n_features - 1]`.
             **kwargs: see `sklearn.neighbors.KernelDensity`.
         """
-        if optimal_bandwidth:
-            n_samples, n_features = X.shape
-            self.bandwidth = 10 ** self.log_scott(n_samples, n_features)
+        n_samples, n_features = X.shape
 
-        if self.rescale:
-            self.dw = DataWhitener("rescale")
-            self.dw.fit(X)
-            X = self.dw.whiten(X)
+        if optimal_bandwidth:
+            self.bandwidth = 10 ** self.log_scott(n_samples, n_features)
+        
+        if features is None:
+            self.features = list(range(n_features))
+        else:
+            if not isinstance(features, list) or n_features != len(features):
+                raise ValueError(
+                    f"`features` {features} should be a `list` of the same lenght "
+                    f"as the dimensionality of the data ({n_features})."
+                )
+            self.features = features
+        
+        self.dw = DataWhitener(self.algorithm)
+        self.dw.fit(X)
+        X = self.dw.whiten(X)
 
         super(ConditionalKernelDensity, self).fit(X, **kwargs)
 
@@ -74,8 +87,7 @@ class ConditionalKernelDensity(KernelDensity):
         self,
         n_samples=1,
         random_state=None,
-        conditional_variables=None,
-        conditional_values=None,
+        conditionals=None,
         keep_dims=False,
     ):
         """Generate random samples from the model.
@@ -86,12 +98,11 @@ class ConditionalKernelDensity(KernelDensity):
                 Determines random number generation used to generate
                 random samples. Pass `int` for reproducible results
                 across multiple function calls. See `Glossary <random_state>`.
-            conditional_variables (bool array): desired variables to condition upon.
-                `len(conditional_variables)` has to be equal to `n_features`.
-                Defaults to `None`.
-            conditional_values (array): values on which one wants to fix
-                conditional variables. `len(conditional_values)` has to be equal
-                to the `sum(conditional_variables)`. Defaults to `None`.
+            conditionals (dict): desired variables (features) to condition upon.
+                Dictionary keys should be only feature names from `features`.
+                For example, if `self.features == ["a", "b", "c"]` and one would like to condition 
+                on "a" and "c", then `conditionas = {"a": cond_val_a, "c": cond_val_c}`.
+                Defaults to `None`, i.e. normal KDE.
             keep_dims (bool): whether to return non-conditioned dimensions only
                 or keep given `conditional_values` for conditioned dimensions.
                 Defaults to `None`.
@@ -103,53 +114,48 @@ class ConditionalKernelDensity(KernelDensity):
         data = np.asarray(self.tree_.data)
         rs = np.random.RandomState(seed=random_state)
 
-        if conditional_variables is None:
-            i = rs.choice(data.shape[0], n_samples)
-            sample = np.atleast_2d(rs.normal(data[i], self.bandwidth))
-            if self.rescale:
-                return self.dw.unwhiten(sample)
-            else:
-                return sample
+        if conditionals is None:
+            idx = rs.choice(data.shape[0], n_samples)
+            sample = np.atleast_2d(rs.normal(data[idx], self.bandwidth))
+            return self.dw.unwhiten(sample)
         else:
-            if conditional_variables.dtype != bool:
+            if not isinstance(conditionals, dict):
                 raise ValueError(
-                    f"Conditional variables` should be `np.bool` array, "
-                    f"but is of type {conditional_variables.dtype}."
+                    "`conditional_features` should be dictionary, but is "
+                    f"{type(conditionals).__name__}."
                 )
-            if len(conditional_variables) != data.shape[-1]:
+            if not all(k in self.features for k in conditionals.keys()):
                 raise ValueError(
-                    "`n_dim` of data should be the same as `len(conditional_variables)`, "
-                    f"but is {len(conditional_variables)} != {data.shape[-1]}."
+                    "All conditionals should be in features. If you haven't "
+                    "specified features, pick integers from `[0, 1, ..., n_features - 1]`."
                 )
+            if len(conditionals) == data.shape[-1]:
+                raise ValueError("One cannot condition on all features.")
 
-            # scaling conditional variables if rescale == True
-            # for this to work, it was crucial to use "rescale" in the data whitener
-            if self.rescale:
-                cond_values = np.zeros(len(conditional_variables))
-                cond_values[conditional_variables] = np.array(conditional_values)
-                cond_values = cond_values.reshape(1, -1)
-                cond_values = self.dw.whiten(cond_values).flatten()[
-                    conditional_variables
-                ]
-            else:
-                cond_values = conditional_values
+            # scaling conditional variables
+            cond_values = np.zeros(len(self.features), dtype = np.float32)
+            cond_variables = np.zeros(len(self.features), dtype = bool)
+            for c_val, c_var, f in zip(cond_values, cond_variables, self.features):
+                if f in conditionals.keys():
+                    c_val = conditionals[f]
+                    c_var = True
+            cond_values = self.dw.whiten(cond_values)[cond_variables]
+
 
             weights = np.exp(
-                -np.sum((cond_values - data[:, conditional_variables]) ** 2, axis=1)
+                -np.sum((cond_values - data[:, cond_variables]) ** 2, axis=1)
                 / (2 * self.bandwidth**2)
             )
             weights /= np.sum(weights)
             i = rs.choice(data.shape[0], n_samples, p=weights)
 
             sample = np.atleast_2d(rs.normal(data[i], self.bandwidth))
-
-            if self.rescale:
-                sample = self.dw.unwhiten(sample)
+            sample = self.dw.unwhiten(sample)
 
             if keep_dims is False:
-                return sample[:, np.logical_not(conditional_variables)]
+                return sample[:, ~cond_variables]
             else:
-                sample[:, conditional_variables] = np.broadcast_to(
-                    conditional_values, (n_samples, len(conditional_values))
+                sample[:, cond_variables] = np.broadcast_to(
+                    cond_values, (n_samples, len(cond_values))
                 )
                 return sample
