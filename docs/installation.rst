@@ -49,3 +49,4 @@ Once you have a copy of the source, you can install it with:
 
 .. _Github repo: https://github.com/dprelogo/conditional_kde
 .. _tarball: https://github.com/dprelogo/conditional_kde/tarball/master
+
