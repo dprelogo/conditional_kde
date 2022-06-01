@@ -6,10 +6,12 @@ from .util import DataWhitener
 
 class ConditionalKernelDensity(KernelDensity):
     """Conditional Kernel Density estimator.
+
     Probability calculations are inherited from `sklearn.neighbors.KernelDensity`.
     The only addition is a sampling function, where one can "cut" the pdf at
     the conditioned values and pull samples directly from conditional density.
     Currently implemented only for a gaussian kernel.
+
     Args:
         rescale (bool): either to rescale the data or not. Good to use with
             `optimal_bandwidth` flag in `self.fit`.
@@ -52,6 +54,7 @@ class ConditionalKernelDensity(KernelDensity):
 
     def fit(self, X, optimal_bandwidth=True, features=None, **kwargs):
         """Fitting the Conditional Kernel Density.
+
         Args:
             X (array): data of shape `(n_samples, n_features)`.
             optimal_bandwidth (bool): if `True`, uses Scott's parameter
@@ -83,6 +86,22 @@ class ConditionalKernelDensity(KernelDensity):
 
         super(ConditionalKernelDensity, self).fit(X, **kwargs)
 
+    def score_samples(self, X):
+        """Compute the log-likelihood of each sample under the model.
+
+        Args:
+            X (array): data of shape `(n_samples, n_features)`.
+                Last dimension should match dimension of training data `(n_features)`.
+
+        Returns:
+            density (array): of shape `(n_samples,)`. Log-likelihood of each sample in `X`. 
+                These are normalized to be probability densities, 
+                so values will be low for high-dimensional data.
+        """
+        X = self.dw.whiten(X)
+
+        return super(ConditionalKernelDensity, self).score_samples(X)
+
     def sample(
         self,
         n_samples=1,
@@ -90,8 +109,10 @@ class ConditionalKernelDensity(KernelDensity):
         conditionals=None,
         keep_dims=False,
     ):
-        """Generate random samples from the model.
-        Currently, this is implemented only for gaussian kernel.
+        """Generate random samples from the conditional model.
+
+        Currently, it is implemented only for a gaussian kernel.
+
         Args:
             n_samples (int): number of samples to generate. Defaults to 1.
             random_state (int): `RandomState` instance, default=None
@@ -106,6 +127,7 @@ class ConditionalKernelDensity(KernelDensity):
             keep_dims (bool): whether to return non-conditioned dimensions only
                 or keep given `conditional_values` for conditioned dimensions.
                 Defaults to `None`.
+
         Returns:
             samples (array): array of samples, of shape `(n_samples, n_features)`
                 if `conditional_variables is None`, else
@@ -159,3 +181,7 @@ class ConditionalKernelDensity(KernelDensity):
                     cond_values, (n_samples, len(cond_values))
                 )
                 return sample
+
+
+class InterpolatedConditionalKernelDensity():
+    pass
