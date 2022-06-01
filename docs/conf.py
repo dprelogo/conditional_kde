@@ -91,6 +91,8 @@ exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store']
 pygments_style = "solarized-light"
 pygments_dark_style = "solarized-dark"
 
+highlight_language = "python3"
+
 # If true, `todo` and `todoList` produce output, else they produce nothing.
 todo_include_todos = False
 
