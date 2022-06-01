@@ -105,7 +105,11 @@ html_theme = 'furo'
 # theme further.  For a list of options available for each theme, see the
 # documentation.
 #
-# html_theme_options = {}
+html_theme_options = {
+    "dark_css_variables": {
+        "color-inline-code-background": "#1D1D1D" 
+    }
+}
 
 # Add any paths that contain custom static files (such as style sheets) here,
 # relative to this directory. They are copied after the builtin static files,
