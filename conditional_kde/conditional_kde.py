@@ -98,6 +98,7 @@ class ConditionalKernelDensity(KernelDensity):
                 These are normalized to be probability densities, 
                 so values will be low for high-dimensional data.
         """
+        # TODO: write score_samples for the conditional distribution.
         X = self.dw.whiten(X)
 
         return super(ConditionalKernelDensity, self).score_samples(X)
