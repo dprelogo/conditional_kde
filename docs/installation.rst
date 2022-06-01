@@ -10,7 +10,7 @@ Stable release
 
 To install Conditional KDE, run this command in your terminal:
 
-.. code-block:: console
+.. code-block:: bash
 
     $ pip install conditional_kde
 
@@ -30,19 +30,19 @@ The sources for Conditional KDE can be downloaded from the `Github repo`_.
 
 You can either clone the public repository:
 
-.. code-block:: console
+.. code-block:: bash
 
     $ git clone git://github.com/dprelogo/conditional_kde
 
 Or download the `tarball`_:
 
-.. code-block:: console
+.. code-block:: bash
 
     $ curl -OJL https://github.com/dprelogo/conditional_kde/tarball/master
 
 Once you have a copy of the source, you can install it with:
 
-.. code-block:: console
+.. code-block:: bash
 
     $ python setup.py install
 
