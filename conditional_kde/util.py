@@ -211,7 +211,7 @@ class Interpolator(RegularGridInterpolator):
 
         # find relevant values
         # each i and i+1 represents a edge
-        edges = itertools.product(*[[i, i + 1] for i in indices])
+        edges = list(itertools.product(*[[i, i + 1] for i in indices]))
         weights = []
         values = 0.0
         for edge_indices in edges:

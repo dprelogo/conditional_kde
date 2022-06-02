@@ -1,7 +1,7 @@
 """Main module."""
 import numpy as np
 from sklearn.neighbors import KernelDensity
-from .util import DataWhitener
+from .util import DataWhitener, Interpolator
 
 
 class ConditionalKernelDensity(KernelDensity):
@@ -185,4 +185,20 @@ class ConditionalKernelDensity(KernelDensity):
 
 
 class InterpolatedConditionalKernelDensity:
+    """Interpolated Conditional Kernel Density estimator.
+
+    With respect to the `ConditionalKernelDensity`, which fits full distribution
+    and cuts through it to obtain the conditional distribution, here we allow
+    for some dimensions of the data to be inherently conditional.
+    For such dimensions, data should be available for every point on a grid.
+
+    To compute the final conditional density, one then interpolates
+    for the inherently conditional dimensions, and slices through others as before.
+
+    Args:
+        rescale (bool): either to rescale the data or not. Good to use with
+            `optimal_bandwidth` flag in `self.fit`.
+        For other arguments see `sklearn.neighbors.KernelDensity`.
+    """
+
     pass
