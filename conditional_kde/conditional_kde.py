@@ -36,7 +36,7 @@ class ConditionalKernelDensity(KernelDensity):
 
         self.algorithm = "rescale" if rescale else None
 
-        super(ConditionalKernelDensity, self).__init__(
+        super().__init__(
             bandwidth=bandwidth,
             algorithm=algorithm,
             kernel=kernel,
@@ -50,6 +50,7 @@ class ConditionalKernelDensity(KernelDensity):
 
     @staticmethod
     def log_scott(n_samples, n_features):
+        """Scott's parameter."""
         return -1 / (n_features + 4) * np.log10(n_samples)
 
     def fit(self, X, optimal_bandwidth=True, features=None, **kwargs):
@@ -69,7 +70,7 @@ class ConditionalKernelDensity(KernelDensity):
 
         if optimal_bandwidth:
             self.bandwidth = 10 ** self.log_scott(n_samples, n_features)
-        
+
         if features is None:
             self.features = list(range(n_features))
         else:
@@ -79,12 +80,12 @@ class ConditionalKernelDensity(KernelDensity):
                     f"as the dimensionality of the data ({n_features})."
                 )
             self.features = features
-        
+
         self.dw = DataWhitener(self.algorithm)
         self.dw.fit(X)
         X = self.dw.whiten(X)
 
-        super(ConditionalKernelDensity, self).fit(X, **kwargs)
+        return super().fit(X, **kwargs)
 
     def score_samples(self, X):
         """Compute the log-likelihood of each sample under the model.
@@ -94,14 +95,14 @@ class ConditionalKernelDensity(KernelDensity):
                 Last dimension should match dimension of training data `(n_features)`.
 
         Returns:
-            density (array): of shape `(n_samples,)`. Log-likelihood of each sample in `X`. 
-                These are normalized to be probability densities, 
+            density (array): of shape `(n_samples,)`. Log-likelihood of each sample in `X`.
+                These are normalized to be probability densities,
                 so values will be low for high-dimensional data.
         """
         # TODO: write score_samples for the conditional distribution.
         X = self.dw.whiten(X)
 
-        return super(ConditionalKernelDensity, self).score_samples(X)
+        return super().score_samples(X)
 
     def sample(
         self,
@@ -122,7 +123,7 @@ class ConditionalKernelDensity(KernelDensity):
                 across multiple function calls. See `Glossary <random_state>`.
             conditionals (dict): desired variables (features) to condition upon.
                 Dictionary keys should be only feature names from `features`.
-                For example, if `self.features == ["a", "b", "c"]` and one would like to condition 
+                For example, if `self.features == ["a", "b", "c"]` and one would like to condition
                 on "a" and "c", then `conditionas = {"a": cond_val_a, "c": cond_val_c}`.
                 Defaults to `None`, i.e. normal KDE.
             keep_dims (bool): whether to return non-conditioned dimensions only
@@ -156,14 +157,13 @@ class ConditionalKernelDensity(KernelDensity):
                 raise ValueError("One cannot condition on all features.")
 
             # scaling conditional variables
-            cond_values = np.zeros(len(self.features), dtype = np.float32)
-            cond_variables = np.zeros(len(self.features), dtype = bool)
+            cond_values = np.zeros(len(self.features), dtype=np.float32)
+            cond_variables = np.zeros(len(self.features), dtype=bool)
             for c_val, c_var, f in zip(cond_values, cond_variables, self.features):
                 if f in conditionals.keys():
                     c_val = conditionals[f]
                     c_var = True
             cond_values = self.dw.whiten(cond_values)[cond_variables]
-
 
             weights = np.exp(
                 -np.sum((cond_values - data[:, cond_variables]) ** 2, axis=1)
@@ -184,5 +184,5 @@ class ConditionalKernelDensity(KernelDensity):
                 return sample
 
 
-class InterpolatedConditionalKernelDensity():
+class InterpolatedConditionalKernelDensity:
     pass
