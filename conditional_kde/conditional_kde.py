@@ -211,6 +211,10 @@ class ConditionalGaussianKernelDensity:
         """Scott's parameter."""
         return -1 / (n_features + 4) * np.log10(n_samples)
 
+    @staticmethod
+    def _log_gauss(x, X, sigma):
+        
+
     def fit(self, X, bandwidth=None, features=None):
         """Fitting the Conditional Kernel Density.
 
