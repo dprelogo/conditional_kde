@@ -189,7 +189,7 @@ class ConditionalGaussianKernelDensity:
     """Conditional Kernel Density estimator.
 
     Args:
-        bandwidth (float): the width of the Gaussian centered arount every point.
+        bandwidth (float): the width of the Gaussian centered around every point.
             By default, it uses "optimal" bandwidth - Scott's parameter.
         rescale (bool): either to rescale the data or not.
     """
@@ -288,7 +288,7 @@ class ConditionalGaussianKernelDensity:
 
         Args:
             X (array): data of shape `(n_samples, n_features)`.
-            bandwidth (float): the width of the Gaussian centered arount every point.
+            bandwidth (float): the width of the Gaussian centered around every point.
                 By default, it uses "optimal" bandwidth - Scott's parameter.
             features (list): optional, list defining names for every feature.
                 It's used for referencing conditional dimensions.
@@ -470,9 +470,57 @@ class InterpolatedConditionalKernelDensity:
     for the inherently conditional dimensions, and slices through others as before.
 
     Args:
-        rescale (bool): either to rescale the data or not. Good to use with
-            `optimal_bandwidth` flag in `self.fit`.
-        For other arguments see `sklearn.neighbors.KernelDensity`.
+        bandwidth (float): the width of the Gaussian centered around every point.
+            By default, it uses "optimal" bandwidth - Scott's parameter.
+        rescale (bool): either to rescale the data or not.
     """
 
-    pass
+    def __init__(
+        self,
+        bandwidth=None,
+        rescale=True,
+    ):
+        if bandwidth is not None and not isinstance(bandwidth, (int, float)):
+            raise ValueError(
+                f"Bandwith should be a number, but is {type(bandwidth).__name__}."
+            )
+        self.bandwidth = bandwidth
+        self.algorithm = "rescale" if rescale else None
+
+        self.interpolator = None  # interpolator
+
+    def fit(
+        self,
+        data,
+        features=None,
+        interpolation_points=None,
+        interpolation_method="linear",
+    ):
+        """Fitting the Interpolated Conditional Kernel Density.
+
+        Let's define by Y = (y1, y2, ..., yN) inherently conditional random variables of the dataset,
+        and by X = (x1, x2, ..., xM) other variables, for which one has a sample of points.
+        This function then fits P(X | Y) for every point on a gridded Y space.
+        To make this possible, one needs to pass a set of X samples for every point on a grid.
+        Later, one can use interpolation in Y and slicing in X
+        to compute P(x1, x2 | x3, ..., xM, y1, ..., yN), or similar.
+        Note that all Y values need to be conditioned.
+
+        Args:
+            data (list of arrays, array): data to fit.
+                Of shape `(n_interp_1, n_interp_2, ..., n_samples, n_features)`.
+                For every point on a grid `(n_interp_1, n_interp_2, ..., n_interp_N)`
+                one needs to pass `(n_samples, n_features)` dataset, for which
+                a separate `n_features`-dim Gaussian KDE is fitted.
+                All points on a grid have to have the same number of features (`n_features`).
+                In the case `n_samples` is not the same for every point,
+                one needs to pass a nested list of arrays.
+            features (list): optional, list defining names for every feature.
+                It's used for referencing conditional dimensions.
+                Defaults to `[0, 1, ..., N + n_features - 1]`.
+            interpolation_points (dict): optional, a dictionary of feature, list of values pairs.
+                Every list of values should be a strictly ascending, defining the grid values.
+                By default it amounts to `{0: np.linspace(0, 1, n_interp_1), ..., N: np.linspace(0, 1, n_interp_N)}`.
+            interpolation_method (str): either "linear" or "nearest",
+                making linear interpolation between distributions or picking the closest one, respectively.
+        """
