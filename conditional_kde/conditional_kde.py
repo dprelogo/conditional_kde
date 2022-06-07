@@ -1,5 +1,6 @@
 """Main module."""
 from functools import partial
+from multiprocessing import Condition
 import numpy as np
 from sklearn.neighbors import KernelDensity
 from .util import DataWhitener, Interpolator
@@ -251,7 +252,7 @@ class ConditionalGaussianKernelDensity:
             else:
                 delta = x - data
                 return -0.5 * np.einsum("ij,j,ij", delta, 1 / sigma**2, delta)
-        
+
         log_prob = np.apply_along_axis(calculate_log_prob, 1, X)
 
         if add_norm:
@@ -464,7 +465,7 @@ class InterpolatedConditionalKernelDensity:
     """Interpolated Conditional Kernel Density estimator.
 
     With respect to the `ConditionalKernelDensity`, which fits full distribution
-    and cuts through it to obtain the conditional distribution, here we allow
+    and slices through it to obtain the conditional distribution, here we allow
     for some dimensions of the data to be inherently conditional.
     For such dimensions, data should be available for every point on a grid.
 
@@ -490,6 +491,7 @@ class InterpolatedConditionalKernelDensity:
         self.algorithm = "rescale" if rescale else None
 
         self.interpolator = None  # interpolator
+        self.kdes = None  # fitted array of Kernel Density Estimators
 
     def fit(
         self,
@@ -517,12 +519,99 @@ class InterpolatedConditionalKernelDensity:
                 All points on a grid have to have the same number of features (`n_features`).
                 In the case `n_samples` is not the same for every point,
                 one needs to pass a nested list of arrays.
-            features (list): optional, list defining names for every feature.
-                It's used for referencing conditional dimensions.
+            features (list): optional, list defining name for every feature.
+                It's used for referencing conditional dimensions, firstly referencing
+                inherently conditional dimensions and others afterwards.
                 Defaults to `[0, 1, ..., N + n_features - 1]`.
             interpolation_points (dict): optional, a dictionary of feature, list of values pairs.
                 Every list of values should be a strictly ascending, defining the grid values.
-                By default it amounts to `{0: np.linspace(0, 1, n_interp_1), ..., N: np.linspace(0, 1, n_interp_N)}`.
+                By default it amounts to:
+                `{0: np.linspace(0, 1, n_interp_1), ..., N: np.linspace(0, 1, n_interp_N)}`.
             interpolation_method (str): either "linear" or "nearest",
                 making linear interpolation between distributions or picking the closest one, respectively.
         """
+        if isinstance(data, np.ndarray):
+            if len(data.shape < 3):
+                raise ValueError(
+                    "`data` should have at least 3 axes: one for 1D grid, one for samples, "
+                    f"one for the rest of features, but its shape is {data.shape}"
+                )
+            N = data.shape - 2
+            number_of_samples = data.shape[:N]
+            n_features = data.shape[-1]
+            data = data.reshape((np.prod(number_of_samples),) + data.shape[-2:])
+        elif isinstance(data, list):
+            # only calculating N, leaving main checks for later
+            def list_depth(l, N=0, ns=[]):
+                ns.append(len(l))
+                N += 1
+                if isinstance(l[0], list):
+                    N, ns, nf = list_depth(l[0], N, ns)
+                elif isinstance(l[0], np.ndarray):
+                    nf = l[0].shape[-1]
+                else:
+                    raise ValueError(
+                        "`data` of type `list` should not contain anything else "
+                        "besides other sublists or `np.ndarray`."
+                    )
+                return N, ns, nf
+
+            N, number_of_samples, n_features = list_depth(data)
+
+            data = np.array(data, dtype=object)
+
+            if len(data.shape) != N and len(data.shape) != N + 2:
+                raise ValueError(
+                    f"Total shape of the data should be equal to `N` ({N})"
+                    "if `n_samples` is different for different points on the grid, "
+                    "or `N + 2` if all points on the grid have the same number of samples."
+                )
+            if len(data.shape) < N or data.shape[:N] != tuple(number_of_samples):
+                raise ValueError(
+                    f"Something is wrong with the shape of the data ({data.shape}). "
+                    f"Are you sure you defined all points on a grid?"
+                )
+
+            if len(data.shape) == N:
+                data = data.flatten()
+            else:
+                data = data.reshape((np.prod(number_of_samples),) + data.shape[-2:])
+        else:
+            raise TypeError(
+                f"`data` should be `np.ndarray` or `list`, but is {type(data).__name__}"
+            )
+
+        if features is None:
+            features = list(range(N + n_features))
+        else:
+            if len(features) != N + n_features:
+                raise ValueError(
+                    "Number of `features` should be equal to "
+                    f"`N + n_features` = {N} + {n_features}, but is {len(features)}"
+                )
+
+        if interpolation_points is None:
+            interpolation_points = {
+                i: np.linspace(0, 1, n) for i, n in enumerate(number_of_samples)
+            }
+        else:
+            if len(interpolation_points) != N:
+                raise ValueError(
+                    f"Number of interpolation points ({len(interpolation_points)}) "
+                    f"should be equal to the number of inherently conditional dimensions ({N}), "
+                    f"but is ({len(interpolation_points)})."
+                )
+            if not all(k in features[:N] for k in interpolation_points.keys()):
+                raise ValueError(
+                    f"All keys of `interpolation_points` ({interpolation_points.keys()}) "
+                    f"should be in first N `features` ({features[:N]})."
+                )
+        points = [v for k, v in interpolation_points.items()]
+
+        self.interpolator = Interpolator(points, method=interpolation_method)
+
+        self.kdes = np.empty(tuple(number_of_samples), dtype=object)
+
+        for kde, d in zip(self.kdes.flatten(), data):
+            kde = ConditionalGaussianKernelDensity()
+            kde.fit(d, features=features[N:])
