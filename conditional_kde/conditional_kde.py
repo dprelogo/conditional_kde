@@ -1,6 +1,4 @@
 """Main module."""
-from functools import partial
-from multiprocessing import Condition
 import numpy as np
 from sklearn.neighbors import KernelDensity
 from .util import DataWhitener, Interpolator
@@ -193,6 +191,11 @@ class ConditionalGaussianKernelDensity:
         bandwidth (float): the width of the Gaussian centered around every point.
             By default, it uses "optimal" bandwidth - Scott's parameter.
         rescale (bool): either to rescale the data or not.
+
+    Methods:
+        fit: fitting the data
+        score_samples: calculate the (un)conditional log-probabilities of the samples
+        sample: sample the conditional distribution
     """
 
     def __init__(
@@ -313,47 +316,35 @@ class ConditionalGaussianKernelDensity:
             self.features = list(range(n_features))
         else:
             if not isinstance(features, list):
-                raise ValueError("`features` should be a `list`.")
+                raise TypeError("`features` should be a `list`.")
             elif n_features != len(features):
                 raise ValueError(
                     f"`n_features` ({n_features}) should be equal to "
                     f"the length of `features` ({len(features)})."
                 )
+            elif len(features) != len(set(features)):
+                raise ValueError("All `features` should be unique.")
             self.features = features
 
         self.dw = DataWhitener(self.algorithm)
         self.dw.fit(X, save_data=True)
 
-    def score_samples(self, X):
-        """Compute the log-probability of each sample under the model.
-
-        Args:
-            X (array): data of shape `(n, n_features)`.
-                Last dimension should match dimension of training data `(n_features)`.
-
-        Returns:
-            p (array): of shape `(n,)`. Log probability of each sample in `X`.
-                These are normalized to be probability densities,
-                so values will be low for high-dimensional data.
-        """
-        return self._log_prob(self.dw.whiten(X), self.dw.whitened_data, self.bandwidth)
-
-    def score_samples_conditional(self, X, conditional_features=None):
-        """Compute the conditional log-probability of each sample under the model.
+    def score_samples(self, X, conditional_features=None):
+        """Compute the (un)conditional log-probability of each sample under the model.
 
         Args:
             X (array): data of shape `(n, n_features)`.
                 Last dimension should match dimension of training data `(n_features)`.
             conditional_features (list): subset of `self.features`, which dimensions of data
-                to condition upon.
+                to condition upon. Defaults to `None`, meaning unconditional log-probability.
 
         Returns:
             p (array): of shape `(n,)`. Conditional log probability of each sample in `X`.
-                These are normalized to be probability densities,
-                so values will be low for high-dimensional data.
         """
         if conditional_features is None:
-            return self.score_samples(X)
+            return self._log_prob(
+                self.dw.whiten(X), self.dw.whitened_data, self.bandwidth
+            )
         else:
             if not all(k in self.features for k in conditional_features):
                 raise ValueError(
@@ -384,34 +375,38 @@ class ConditionalGaussianKernelDensity:
 
     def sample(
         self,
+        conditionals=None,
         n_samples=1,
         random_state=None,
-        conditionals=None,
         keep_dims=False,
     ):
         """Generate random samples from the conditional model.
 
         Args:
-            n_samples (int): number of samples to generate. Defaults to 1.
-            random_state (int): `RandomState` instance, defaults to `None`.
-                Determines random number generation used to generate
-                random samples. Pass `int` for reproducible results
-                across multiple function calls. See `Glossary <random_state>`.
             conditionals (dict): desired variables (features) to condition upon.
                 Dictionary keys should be only feature names from `features`.
                 For example, if `self.features == ["a", "b", "c"]` and one would like to condition
                 on "a" and "c", then `conditionas = {"a": cond_val_a, "c": cond_val_c}`.
                 Defaults to `None`, i.e. normal KDE.
+            n_samples (int): number of samples to generate. Defaults to 1.
+            random_state (np.random.RandomState, int): seed or `RandomState` instance, optional.
+                Determines random number generation used to generate
+                random samples. See `Glossary <random_state>`.
             keep_dims (bool): whether to return non-conditioned dimensions only
                 or keep given conditional values. Defaults to `False`.
 
         Returns:
             samples (array): array of samples, of shape `(n_samples, n_features)`
                 if `conditional_variables is None`, else
-                `(n_samples, n_features - sum(conditional_variables))`
+                `(n_samples, n_features - len(conditionals))`
         """
         data = self.dw.whitened_data
-        rs = np.random.RandomState(seed=random_state)
+        if isinstance(random_state, np.random.RandomState):
+            rs = random_state
+        elif random_state is None or isinstance(random_state, int):
+            rs = np.random.RandomState(seed=random_state)
+        else:
+            raise TypeError("`random_state` should be `int` or `RandomState`.")
 
         if conditionals is None:
             idx = rs.choice(data.shape[0], n_samples)
@@ -476,6 +471,11 @@ class InterpolatedConditionalKernelDensity:
         bandwidth (float): the width of the Gaussian centered around every point.
             By default, it uses "optimal" bandwidth - Scott's parameter.
         rescale (bool): either to rescale the data or not.
+
+    Methods:
+        fit: fitting the data
+        score_samples: calculate the conditional log-probabilities of the samples
+        sample: sample the conditional distribution
     """
 
     def __init__(
@@ -490,12 +490,15 @@ class InterpolatedConditionalKernelDensity:
         self.bandwidth = bandwidth
         self.algorithm = "rescale" if rescale else None
 
+        self.inherent_features = None  # all inherently conditional features
+        self.features = None  # all other features
         self.interpolator = None  # interpolator
         self.kdes = None  # fitted array of Kernel Density Estimators
 
     def fit(
         self,
         data,
+        inherent_features=None,
         features=None,
         interpolation_points=None,
         interpolation_method="linear",
@@ -519,14 +522,17 @@ class InterpolatedConditionalKernelDensity:
                 All points on a grid have to have the same number of features (`n_features`).
                 In the case `n_samples` is not the same for every point,
                 one needs to pass a nested list of arrays.
-            features (list): optional, list defining name for every feature.
-                It's used for referencing conditional dimensions, firstly referencing
-                inherently conditional dimensions and others afterwards.
-                Defaults to `[0, 1, ..., N + n_features - 1]`.
-            interpolation_points (dict): optional, a dictionary of feature, list of values pairs.
-                Every list of values should be a strictly ascending, defining the grid values.
+            inherent_features (list): optional, list defining name of every
+                inherently conditional feature. It is used for referencing conditional dimensions.
+                Defaults to `[-1, -2, ..., -N]`, where `N` is the number of inherently conditional features.
+            features (list): optional, list defining name for every other feature.
+                It's used for referencing conditional dimensions.
+                Defaults to `[0, 1, ..., n_features - 1]`.
+            interpolation_points (dict): optional, a dictionary of `feature: list_of_values` pairs.
+                This defines the grid points for every inherently conditional feature.
+                Every list of values should be a strictly ascending.
                 By default it amounts to:
-                `{0: np.linspace(0, 1, n_interp_1), ..., N: np.linspace(0, 1, n_interp_N)}`.
+                `{-1: np.linspace(0, 1, n_interp_1), ..., -N: np.linspace(0, 1, n_interp_N)}`.
             interpolation_method (str): either "linear" or "nearest",
                 making linear interpolation between distributions or picking the closest one, respectively.
         """
@@ -542,11 +548,10 @@ class InterpolatedConditionalKernelDensity:
             data = data.reshape((np.prod(number_of_samples),) + data.shape[-2:])
         elif isinstance(data, list):
             # only calculating N, leaving main checks for later
-            def list_depth(l, N=0, ns=[]):
+            def list_depth(l, ns=[]):
                 ns.append(len(l))
-                N += 1
                 if isinstance(l[0], list):
-                    N, ns, nf = list_depth(l[0], N, ns)
+                    ns, nf = list_depth(l[0], ns)
                 elif isinstance(l[0], np.ndarray):
                     nf = l[0].shape[-1]
                 else:
@@ -554,9 +559,10 @@ class InterpolatedConditionalKernelDensity:
                         "`data` of type `list` should not contain anything else "
                         "besides other sublists or `np.ndarray`."
                     )
-                return N, ns, nf
+                return ns, nf
 
-            N, number_of_samples, n_features = list_depth(data)
+            number_of_samples, n_features = list_depth(data)
+            N = len(number_of_samples)
 
             data = np.array(data, dtype=object)
 
@@ -581,14 +587,28 @@ class InterpolatedConditionalKernelDensity:
                 f"`data` should be `np.ndarray` or `list`, but is {type(data).__name__}"
             )
 
-        if features is None:
-            features = list(range(N + n_features))
+        if inherent_features is None:
+            self.inherent_features = list(range(-1, -N - 1, -1))
         else:
-            if len(features) != N + n_features:
+            if len(inherent_features) != N:
+                raise ValueError(
+                    "Number of `inherent_features` should be equal to "
+                    f"{N}, but is {len(features)}."
+                )
+            if len(inherent_features) != len(set(inherent_features)):
+                raise ValueError("All `inherent_features` should be unique.")
+            self.inherent_features = inherent_features
+        if features is None:
+            self.features = list(range(n_features))
+        else:
+            if len(features) != n_features:
                 raise ValueError(
                     "Number of `features` should be equal to "
-                    f"`N + n_features` = {N} + {n_features}, but is {len(features)}"
+                    f"{n_features}, but is {len(features)}"
                 )
+            if len(features) != len(set(features)):
+                raise ValueError("All `features` should be unique.")
+            self.features = features
 
         if interpolation_points is None:
             interpolation_points = {
@@ -601,10 +621,12 @@ class InterpolatedConditionalKernelDensity:
                     f"should be equal to the number of inherently conditional dimensions ({N}), "
                     f"but is ({len(interpolation_points)})."
                 )
-            if not all(k in features[:N] for k in interpolation_points.keys()):
+            if not all(
+                k in self.inherent_features for k in interpolation_points.keys()
+            ):
                 raise ValueError(
                     f"All keys of `interpolation_points` ({interpolation_points.keys()}) "
-                    f"should be in first N `features` ({features[:N]})."
+                    f"should be in `inherent_features` ({self.inherent_features})."
                 )
         points = [v for k, v in interpolation_points.items()]
 
@@ -614,4 +636,163 @@ class InterpolatedConditionalKernelDensity:
 
         for kde, d in zip(self.kdes.flatten(), data):
             kde = ConditionalGaussianKernelDensity()
-            kde.fit(d, features=features[N:])
+            kde.fit(d, features=self.features)
+
+    def score_samples(self, X, inherent_conditionals, conditional_features=None):
+        """Compute the conditional log-probability of each sample under the model.
+
+        For the simplicity of calculation, here the grid point is fixed by defining
+        a point in inherently conditional dimensions.
+        `X` is then an array of shape `(n, n_features)`, including all other dimensions of the data.
+
+        Args:
+            X (array): data of shape `(n, n_features)`.
+                Last dimension should match dimension of training data `(n_features)`.
+            inherent_conditionals (dict): values of inherent (grid) features.
+                This values are used to interpolate on the grid.
+                All inherently conditional dimensions must be defined.
+            conditional_features (list): subset of `self.features`, which dimensions of data
+                to additionally condition upon. Defaults to `None`, meaning no additionally conditioned dimensions.
+
+        Returns:
+            p (array): of shape `(n,)`. Conditional log probability of each sample in `X`,
+                conditioned on inherently conditional dimensions by `inherent_conditionals`
+                and other dimensions by `conditional_features`.
+        """
+        N = len(self.inherent_features)
+
+        if not isinstance(inherent_conditionals, dict):
+            raise TypeError(
+                f"`inherent_conditionals` should be dictionary, but is {type(inherent_conditionals).__name__}"
+            )
+        if sorted(inherent_conditionals.keys()) != sorted(self.inherent_features):
+            raise ValueError(
+                "`inherent_conditionals` keys should be equal to `inherent_features`."
+            )
+
+        inherently_conditional_values = np.array(
+            [inherent_conditionals[k] for k in self.inherent_features], dtype=np.float32
+        )
+
+        if self.interpolator.method == "linear":
+            edges, weights = self.interpolator(
+                inherently_conditional_values, return_aux=True
+            )
+            weights = [float(weight.squeeze()) for weight in weights]
+            kdes = [self.kdes[edge][0] for edge in edges]
+            probs = np.zeros(len(X), dtype=np.float128)
+            for weight, kde in zip(weights, kdes):
+                probs += np.exp(kde.score_samples(X, conditional_features)) * weight
+            return np.log(probs).astype(np.float32)
+        else:
+            edge = self.interpolator(inherently_conditional_values, return_aux=True)
+            kde = self.kdes[edge][0]
+            return kde.score_samples(X, conditional_features)
+
+    def sample(
+        self,
+        inherent_conditionals,
+        conditionals=None,
+        n_samples=1,
+        random_state=None,
+        keep_dims=False,
+    ):
+        """Generate random samples from the conditional model.
+
+        Args:
+            inherent_conditionals (dict): values of inherent (grid) features.
+                This values are used to interpolate on the grid.
+                All inherently conditional dimensions must be defined.
+            conditionals (dict): other desired variables (features) to condition upon.
+                Dictionary keys should be only feature names from `features`.
+                For example, if `self.features == ["a", "b", "c"]` and one would like to condition
+                on "a" and "c", then `conditionas = {"a": cond_val_a, "c": cond_val_c}`.
+                Defaults to `None`, i.e. no additionally conditioned variables.
+            n_samples (int): number of samples to generate. Defaults to 1.
+            random_state (np.random.RandomState, int): seed or `RandomState` instance, optional.
+                Determines random number generation used to generate
+                random samples. See `Glossary <random_state>`.
+            keep_dims (bool): whether to return non-conditioned dimensions only
+                or keep given conditional values. Defaults to `False`.
+
+        Returns:
+            samples (array): array of samples,
+                of shape `(n_samples, N + n_features)` if `conditional_variables is None`,
+                else `(n_samples, n_features - len(conditionals))`.
+        """
+        N = len(self.inherent_features)
+
+        if not isinstance(inherent_conditionals, dict):
+            raise TypeError(
+                f"`inherent_conditionals` should be dictionary, but is {type(inherent_conditionals).__name__}"
+            )
+        if sorted(inherent_conditionals.keys()) != sorted(self.inherent_features):
+            raise ValueError(
+                "`inherent_conditionals` keys should be equal to `inherent_features`."
+            )
+
+        inherently_conditional_values = np.array(
+            [inherent_conditionals[k] for k in self.inherent_features], dtype=np.float32
+        )
+
+        if isinstance(random_state, np.random.RandomState):
+            rs = random_state
+        elif random_state is None or isinstance(random_state, int):
+            rs = np.random.RandomState(seed=random_state)
+        else:
+            raise TypeError("`random_state` should be `int` or `RandomState`.")
+
+        if self.interpolator.method == "linear":
+            edges, weights = self.interpolator(
+                inherently_conditional_values, return_aux=True
+            )
+            weights = [float(weight.squeeze()) for weight in weights]
+            kdes = [self.kdes[edge][0] for edge in edges]
+
+            all_samples = [
+                kde.sample(
+                    conditionals=conditionals,
+                    n_samples=n_samples,
+                    random_state=rs,
+                    keep_dims=keep_dims,
+                )
+                for kde in kdes
+            ]
+            all_samples = np.concatenate(all_samples, axis=0)
+            all_weights = np.ones((len(edges), n_samples), dtype=np.float32) * np.array(
+                weights, dtype=np.float32
+            )
+            all_weights = all_weights.flatten()
+            all_weights /= all_weights.sum()
+
+            idx = rs.choice(len(all_samples), n_samples, p=all_weights)
+            samples = all_samples[idx]
+            if keep_dims:
+                return np.stack(
+                    [
+                        np.broadcast_to(inherently_conditional_values, (n_samples, N)),
+                        samples,
+                    ],
+                    axis=-1,
+                )
+            else:
+                return samples
+        else:
+            edge = self.interpolator(inherently_conditional_values, return_aux=True)
+            kde = self.kdes[edge][0]
+            samples = kde.sample(
+                conditionals=conditionals,
+                n_samples=n_samples,
+                random_state=rs,
+                keep_dims=keep_dims,
+            )
+            if keep_dims:
+                np.stack(
+                    [
+                        np.broadcast_to(inherently_conditional_values, (n_samples, N)),
+                        samples,
+                    ],
+                    axis=-1,
+                )
+            else:
+                return samples
