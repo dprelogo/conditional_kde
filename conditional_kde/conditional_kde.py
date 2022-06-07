@@ -566,7 +566,7 @@ class InterpolatedConditionalKernelDensity:
                     "if `n_samples` is different for different points on the grid, "
                     "or `N + 2` if all points on the grid have the same number of samples."
                 )
-            if len(data.shape) < N or data.shape[:N] != tuple(number_of_samples):
+            if data.shape[:N] != tuple(number_of_samples):
                 raise ValueError(
                     f"Something is wrong with the shape of the data ({data.shape}). "
                     f"Are you sure you defined all points on a grid?"
