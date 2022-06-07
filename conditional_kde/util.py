@@ -158,6 +158,11 @@ class Interpolator(RegularGridInterpolator):
                 In the case of `method == "nearest", only one grid point is relevant,
                 with its weight equal to 1.
         """
+        if self.interpolate_values is False and return_aux is False:
+            raise ValueError(
+                "Please either define `values` or set `return_aux` to `True`. "
+                "Otherwise there's nothing to compute."
+            )
         method = self.method if method is None else method
         if method not in ["linear", "nearest"]:
             raise ValueError(f"Method {method} is not defined")
@@ -203,7 +208,7 @@ class Interpolator(RegularGridInterpolator):
             out = out + (edges,)
             if method == "linear":
                 out = out + (weights,)
-        return None if len(out) == 0 else out
+        return out[0] if len(out) == 1 else out
 
     def _evaluate_linear(self, indices, norm_distances, out_of_bounds):
         # slice for broadcasting over trailing dimensions in self.values
