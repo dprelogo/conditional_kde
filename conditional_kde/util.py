@@ -137,7 +137,7 @@ class Interpolator(RegularGridInterpolator):
             fill_value=fill_value,
         )
 
-    def __call__(self, xi, method=None, return_aux=False):
+    def __call__(self, xi, method=None, return_aux=True):
         """Interpolation at coordinates.
 
         If values were not passed during initialization, it doesn't interpolate
