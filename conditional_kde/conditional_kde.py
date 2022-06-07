@@ -1,5 +1,5 @@
 """Main module."""
-from multiprocessing.sharedctypes import Value
+from functools import partial
 import numpy as np
 from sklearn.neighbors import KernelDensity
 from .util import DataWhitener, Interpolator
@@ -145,7 +145,7 @@ class ConditionalKernelDensity(KernelDensity):
             return self.dw.unwhiten(sample)
         else:
             if not isinstance(conditionals, dict):
-                raise ValueError(
+                raise TypeError(
                     "`conditional_features` should be dictionary, but is "
                     f"{type(conditionals).__name__}."
                 )
@@ -200,7 +200,7 @@ class ConditionalGaussianKernelDensity:
         rescale=True,
     ):
         if bandwidth is not None and not isinstance(bandwidth, (int, float)):
-            raise ValueError(
+            raise TypeError(
                 f"Bandwith should be a number, but is {type(bandwidth).__name__}."
             )
         self.bandwidth = bandwidth
@@ -235,8 +235,8 @@ class ConditionalGaussianKernelDensity:
         if X.shape[-1] != n_features:
             raise ValueError("`n_features` of both arrays should be the same.")
         if not isinstance(sigma, (int, float, list, np.ndarray)):
-            raise ValueError(
-                f"`sigma` should be a number, list or `numpy.ndarray`, "
+            raise TypeError(
+                f"`sigma` should be a number, `list` or `numpy.ndarray`, "
                 f"but is {type(sigma).__name__}"
             )
         if isinstance(sigma, (list, np.ndarray)) and len(sigma) != n_features:
@@ -244,14 +244,16 @@ class ConditionalGaussianKernelDensity:
         if isinstance(sigma, list):
             sigma = np.array(sigma, dtype=np.float32)
 
-        log_prob = np.empty(X.shape[0])
-        for x, p in zip(X, log_prob):
+        def calculate_log_prob(x):
             if isinstance(sigma, (int, float)):
                 delta = x - data
-                p = -0.5 * np.einsum("ij,ij", delta, delta) / sigma**2
+                return -0.5 * np.einsum("ij,ij", delta, delta) / sigma**2
             else:
                 delta = x - data
-                p = -0.5 * np.einsum("ij,j,ij", delta, 1 / sigma**2, delta)
+                return -0.5 * np.einsum("ij,j,ij", delta, 1 / sigma**2, delta)
+        
+        log_prob = np.apply_along_axis(calculate_log_prob, 1, X)
+
         if add_norm:
             norm = np.log(n_samples) + 0.5 * n_features * np.log(2 * np.pi)
             if isinstance(sigma, (int, float)):
@@ -297,7 +299,7 @@ class ConditionalGaussianKernelDensity:
         n_samples, n_features = X.shape
 
         if bandwidth is not None and not isinstance(bandwidth, (int, float)):
-            raise ValueError(
+            raise TypeError(
                 f"Bandwith should be a number, but is {type(bandwidth).__name__}."
             )
         if bandwidth is not None:
@@ -416,7 +418,7 @@ class ConditionalGaussianKernelDensity:
             return self.dw.unwhiten(sample)
         else:
             if not isinstance(conditionals, dict):
-                raise ValueError(
+                raise TypeError(
                     "`conditional_features` should be dictionary, but is "
                     f"{type(conditionals).__name__}."
                 )
@@ -481,7 +483,7 @@ class InterpolatedConditionalKernelDensity:
         rescale=True,
     ):
         if bandwidth is not None and not isinstance(bandwidth, (int, float)):
-            raise ValueError(
+            raise TypeError(
                 f"Bandwith should be a number, but is {type(bandwidth).__name__}."
             )
         self.bandwidth = bandwidth
