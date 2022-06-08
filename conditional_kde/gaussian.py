@@ -282,6 +282,9 @@ class ConditionalGaussianKernelDensity:
             sigma (float, array): sigma of a gaussian distribution.
                 If float, it is shared for all conditioned features, otherwise it should be
                 array of size `n_conditionals`.
+
+        Returns:
+            An instance of itself.
         """
         weights = np.exp(
             -0.5
@@ -329,6 +332,8 @@ class ConditionalGaussianKernelDensity:
 
         self.dw = DataWhitener(self.algorithm)
         self.dw.fit(X, save_data=True)
+
+        return self
 
     def score_samples(self, X, conditional_features=None):
         """Compute the (un)conditional log-probability of each sample under the model.

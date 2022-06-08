@@ -84,6 +84,9 @@ class InterpolatedConditionalKernelDensity:
                 `{-1: np.linspace(0, 1, n_interp_1), ..., -N: np.linspace(0, 1, n_interp_N)}`.
             interpolation_method (str): either "linear" or "nearest",
                 making linear interpolation between distributions or picking the closest one, respectively.
+
+        Returns:
+            An instance of itself.
         """
         if isinstance(data, np.ndarray):
             if len(data.shape < 3):
@@ -186,6 +189,8 @@ class InterpolatedConditionalKernelDensity:
         for kde, d in zip(self.kdes.flatten(), data):
             kde = ConditionalGaussianKernelDensity()
             kde.fit(d, features=self.features)
+
+        return self
 
     def score_samples(self, X, inherent_conditionals, conditional_features=None):
         """Compute the conditional log-probability of each sample under the model.
