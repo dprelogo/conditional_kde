@@ -12,5 +12,6 @@ Submodules
 .. toctree::
    :maxdepth: 4
 
-   conditional_kde.conditional_kde
+   conditional_kde.gaussian
+   conditional_kde.interpolated
    conditional_kde.util
