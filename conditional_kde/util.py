@@ -12,6 +12,7 @@ class DataWhitener:
 
     Args:
         algorithm (str): one of `[None, "center", "rescale", "PCA", "ZCA"]`.
+
             - `None` - leaves the data as is.
             - "center" - calculates mean in every dimension and removes it from the data.
             - "rescale" - calculates mean and standard deviation in each dimension
@@ -22,6 +23,11 @@ class DataWhitener:
             - "ZCA" - equivalent to the "PCA", with additional step of rotating
                 back to original space. In this case, the final data still
                 outputs 'in the same direction'.
+
+    Methods:
+        fit: fitting the data.
+        whiten: whiten the data.
+        unwhiten: unwhiten the data.
 
     """
 
