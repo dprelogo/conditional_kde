@@ -179,11 +179,13 @@ class InterpolatedConditionalKernelDensity:
 
         self.interpolator = Interpolator(points, method=interpolation_method)
 
-        self.kdes = np.empty(tuple(number_of_samples), dtype=object)
-
-        for kde, d in zip(self.kdes.flatten(), data):
+        self.kdes = []
+        for d in data:
             kde = ConditionalGaussianKernelDensity()
-            kde.fit(d, features=self.features)
+            kde.fit(d.astype(float), features=self.features)
+            self.kdes.append(kde)
+        self.kdes = np.array(self.kdes, dtype=object)
+        self.kdes = self.kdes.reshape(tuple(number_of_samples))
 
         return self
 
@@ -307,10 +309,8 @@ class InterpolatedConditionalKernelDensity:
                 for kde in kdes
             ]
             all_samples = np.concatenate(all_samples, axis=0)
-            all_weights = np.ones((len(edges), n_samples), dtype=np.float32) * np.array(
-                weights, dtype=np.float32
-            )
-            all_weights = all_weights.flatten()
+            all_weights = [np.ones(n_samples) * w for w in weights]
+            all_weights = np.concatenate(all_weights)
             all_weights /= all_weights.sum()
 
             idx = rs.choice(len(all_samples), n_samples, p=all_weights)
