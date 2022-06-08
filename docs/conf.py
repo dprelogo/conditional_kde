@@ -50,7 +50,9 @@ extensions = [
 
 autosummary_generate = True
 napoleon_include_private_with_doc = True
-
+autodoc_default_options = {
+    "special-members": "__call__",
+}
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ["_templates"]
 
