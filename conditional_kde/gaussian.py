@@ -244,10 +244,14 @@ class ConditionalGaussianKernelDensity:
         def calculate_log_prob(x):
             if isinstance(sigma, (int, float)):
                 delta = x - data
-                return -0.5 * np.einsum("ij,ij", delta, delta) / sigma**2
+                res = np.exp(-0.5 / sigma**2 * np.einsum("ij,ij->i", delta, delta))
+                return np.log(np.sum(res))
             else:
                 delta = x - data
-                return -0.5 * np.einsum("ij,j,ij", delta, 1 / sigma**2, delta)
+                res = np.exp(
+                    -0.5 * np.einsum("ij,j,ij->i", delta, 1 / sigma**2, delta)
+                )
+                return np.log(np.sum(res))
 
         log_prob = np.apply_along_axis(calculate_log_prob, 1, X)
 
@@ -343,9 +347,7 @@ class ConditionalGaussianKernelDensity:
             Conditional log probability for each sample in `X`.
         """
         if conditional_features is None:
-            return self._log_prob(
-                self.dw.whiten(X), self.dw.whitened_data, self.bandwidth
-            )
+            return self._log_prob(X, self.data, self.bandwidth)
         else:
             if not all(k in self.features for k in conditional_features):
                 raise ValueError(
@@ -358,19 +360,19 @@ class ConditionalGaussianKernelDensity:
                     "Probability of that is 1."
                 )
 
-            # scaling conditional variables
             cond_variables = [
                 True if f in conditional_features else False for f in self.features
             ]
             cond_variables = np.array(cond_variables, dtype=bool)
 
             X = np.atleast_2d(X)
-            X = self.dw.whiten(X)
-            p_full = self._log_prob(X, self.dw.whitened_data, self.bandwidth)
+            p_full = self._log_prob(
+                X, self.dw.data, self.bandwidth * np.diag(self.dw.WI)
+            )
             p_marginal = self._log_prob(
                 X[:, cond_variables],
-                self.dw.whitened_data[:, cond_variables],
-                self.bandwidth,
+                self.dw.data[:, cond_variables],
+                (self.bandwidth * np.diag(self.dw.WI))[cond_variables],
             )
             return p_full - p_marginal
 
@@ -429,10 +431,10 @@ class ConditionalGaussianKernelDensity:
             # scaling conditional variables
             cond_values = np.zeros(len(self.features), dtype=np.float32)
             cond_variables = np.zeros(len(self.features), dtype=bool)
-            for c_val, c_var, f in zip(cond_values, cond_variables, self.features):
+            for i, f in enumerate(self.features):
                 if f in conditionals.keys():
-                    c_val = conditionals[f]
-                    c_var = True
+                    cond_values[i] = conditionals[f]
+                    cond_variables[i] = True
             cond_values = self.dw.whiten(cond_values)[cond_variables]
 
             weights = self._conditional_weights(
