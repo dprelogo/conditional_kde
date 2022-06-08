@@ -8,7 +8,6 @@ Conditional KDE's documentation
    readme
    installation
    usage
-   modules
    contributing
    authors
    history
@@ -24,7 +23,7 @@ Conditional KDE's documentation
    :maxdepth: 3
    :caption: API documentation
 
-   reference
+   reference/conditional_kde
 
 Indices and tables
 ==================
