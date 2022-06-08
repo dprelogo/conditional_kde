@@ -11,18 +11,18 @@ class DataWhitener:
     Implements several algorithms, depending on the desired whitening properties.
 
     Args:
-        algorithm (str): one of `[None, "center", "rescale", "PCA", "ZCA"]`.
+        algorithm (str): either `None`, "center", "rescale", "PCA" or "ZCA".
 
             - `None` - leaves the data as is.
             - "center" - calculates mean in every dimension and removes it from the data.
             - "rescale" - calculates mean and standard deviation in each dimension
-                and rescales it to zero-mean, unit-variance. In the absence
-                of high correlations between dimensions, this is often sufficient.
+            and rescales it to zero-mean, unit-variance. In the absence
+            of high correlations between dimensions, this is often sufficient.
             - "PCA" - data is transformed into its PCA space and divided by
-                the standard deviation of each dimension
+            the standard deviation of each dimension
             - "ZCA" - equivalent to the "PCA", with additional step of rotating
-                back to original space. In this case, the final data still
-                outputs 'in the same direction'.
+            back to original space. In this case, the final data still
+            outputs 'in the same direction'.
 
     Methods:
         fit: fitting the data.
