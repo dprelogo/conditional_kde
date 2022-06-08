@@ -1,9 +1,9 @@
-Welcome to Conditional KDE's documentation!
+Conditional KDE's documentation
 ======================================
 
 .. toctree::
-   :maxdepth: 2
-   :caption: Contents:
+   :maxdepth: 1
+   :caption: Getting Started
 
    readme
    installation
@@ -12,6 +12,19 @@ Welcome to Conditional KDE's documentation!
    contributing
    authors
    history
+
+.. toctree::
+   :maxdepth: 1
+   :caption: Tutorials
+
+   notebooks/ConditionalKDE
+   notebooks/InterpolatedConditionalKDE
+
+.. toctree::
+   :maxdepth: 3
+   :caption: API documentation
+
+   reference
 
 Indices and tables
 ==================
