@@ -11,12 +11,13 @@ class ConditionalKernelDensity(KernelDensity):
     Probability calculations are inherited from `sklearn.neighbors.KernelDensity`.
     The only addition is a sampling function, where one can "cut" the pdf at
     the conditioned values and pull samples directly from conditional density.
-    Currently implemented only for a gaussian kernel.
+    Currently implemented only for a gaussian kernel. For all  arguments see 
+    `sklearn.neighbors.KernelDensity`.
 
     Args:
         rescale (bool): either to rescale the data or not. Good to use with
             `optimal_bandwidth` flag in `self.fit`.
-        For other arguments see `sklearn.neighbors.KernelDensity`.
+        
     """
 
     def __init__(
@@ -96,9 +97,7 @@ class ConditionalKernelDensity(KernelDensity):
                 Last dimension should match dimension of training data `(n_features)`.
 
         Returns:
-            density (array): of shape `(n_samples,)`. Log-likelihood of each sample in `X`.
-                These are normalized to be probability densities,
-                so values will be low for high-dimensional data.
+            Density array of shape `(n_samples,)`, i.e. log-probability of each sample in `X`.
         """
         # TODO: write score_samples for the conditional distribution.
         X = self.dw.whiten(X)
@@ -132,9 +131,8 @@ class ConditionalKernelDensity(KernelDensity):
                 Defaults to `None`.
 
         Returns:
-            samples (array): array of samples, of shape `(n_samples, n_features)`
-                if `conditional_variables is None`, else
-                `(n_samples, n_features - sum(conditional_variables))`
+            Array of samples of shape `(n_samples, n_features)` if `conditional_variables is None`,
+            or `(n_samples, n_features - sum(conditional_variables))` otherwise.
         """
         data = np.asarray(self.tree_.data)
         rs = np.random.RandomState(seed=random_state)
@@ -233,7 +231,7 @@ class ConditionalGaussianKernelDensity:
             add_norm (bool): either to add normalization factor to the calculation or not.
 
         Returns:
-            log_prob (array): log probabilities, of shape `(n,)`.
+            Log probabilities.
         """
         n_samples, n_features = data.shape
         X = np.atleast_2d(X)
@@ -284,7 +282,7 @@ class ConditionalGaussianKernelDensity:
                 array of size `n_conditionals`.
 
         Returns:
-            An instance of itself.
+            Normalized weights.
         """
         weights = np.exp(
             -0.5
@@ -303,6 +301,9 @@ class ConditionalGaussianKernelDensity:
             features (list): optional, list defining names for every feature.
                 It's used for referencing conditional dimensions.
                 Defaults to `[0, 1, ..., n_features - 1]`.
+        
+        Returns:
+            An instance of itself.
         """
         n_samples, n_features = X.shape
 
@@ -345,7 +346,7 @@ class ConditionalGaussianKernelDensity:
                 to condition upon. Defaults to `None`, meaning unconditional log-probability.
 
         Returns:
-            p (array): of shape `(n,)`. Conditional log probability of each sample in `X`.
+            Conditional log probability for each sample in `X`.
         """
         if conditional_features is None:
             return self._log_prob(
@@ -402,9 +403,8 @@ class ConditionalGaussianKernelDensity:
                 or keep given conditional values. Defaults to `False`.
 
         Returns:
-            samples (array): array of samples, of shape `(n_samples, n_features)`
-                if `conditional_variables is None`, else
-                `(n_samples, n_features - len(conditionals))`
+            Array of samples, of shape `(n_samples, n_features)` if `conditional_variables is None`,
+            or `(n_samples, n_features - len(conditionals))` otherwise.
         """
         data = self.dw.whitened_data
         if isinstance(random_state, np.random.RandomState):

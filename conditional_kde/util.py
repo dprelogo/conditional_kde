@@ -66,7 +66,7 @@ class DataWhitener:
                 Data to whiten. `n_dims` has to be the same as self.data.
 
         Returns:
-            whitened_data (array): whitened data, of shape `(n_samples, n_dims)`
+            Whitened data, of shape `(n_samples, n_dims)`.
         """
         if self.algorithm is None:
             return X
@@ -92,7 +92,7 @@ class DataWhitener:
                 `n_dims` has to be the same as `self.data`.
 
         Returns:
-            X (array): whitened data, of shape `(n_samples, n_dims)`
+            Unwhitened data, of shape `(n_samples, n_dims)`.
         """
         if self.algorithm is None:
             return X_whitened
@@ -127,9 +127,6 @@ class Interpolator(RegularGridInterpolator):
         bounds_error (bool): either to raise an error if the point for which
             interpolation is requested is out of the grid bounds.
         fill_value (float): value to be filled for out of the grid points.
-
-    Methods:
-        __call__: compute the interpolation.
     """
 
     def __init__(
@@ -150,7 +147,8 @@ class Interpolator(RegularGridInterpolator):
         """Interpolation at coordinates.
 
         If values were not passed during initialization, it doesn't interpolate
-        but returns
+        but returns grid coordinates and weights only.
+
         Args:
             xi (array): the coordinates to sample the gridded data at, of shape `(..., ndim)`.
             method (str): The method of interpolation to perform.
@@ -158,14 +156,10 @@ class Interpolator(RegularGridInterpolator):
             return_aux (bool): If `True`, return includes grid coordinates and weights.
 
         Returns:
-            values (array): interpolated values.
-                Only if function values were set during initialization.
-            grid_coords (array): relevant grid coordinates for each item in `xi`.
-                Only if `return_aux is True`.
-            weights (array): array of weights for every grid coordinate.
-                Only if `return_aux is True` and `method == "linear"`.
-                In the case of `method == "nearest", only one grid point is relevant,
-                with its weight equal to 1.
+            If function values were set during initialization, returns an array of interpolated values.
+            If `return_aux is True` it will further return grid coordinates for every item in `xi`.
+            In the case method is "nearest", this will be only one relevant coordinate per `xi` sample, 
+            or multiple ones for "linear" method. For the latter, also weights of every coordinate will be returned.
         """
         if self.interpolate_values is False and return_aux is False:
             raise ValueError(

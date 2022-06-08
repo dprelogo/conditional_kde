@@ -20,11 +20,6 @@ class InterpolatedConditionalKernelDensity:
         bandwidth (float): the width of the Gaussian centered around every point.
             By default, it uses "optimal" bandwidth - Scott's parameter.
         rescale (bool): either to rescale the data or not.
-
-    Methods:
-        fit: fitting the data
-        score_samples: calculate the conditional log-probabilities of the samples
-        sample: sample the conditional distribution
     """
 
     def __init__(
@@ -209,9 +204,9 @@ class InterpolatedConditionalKernelDensity:
                 to additionally condition upon. Defaults to `None`, meaning no additionally conditioned dimensions.
 
         Returns:
-            p (array): of shape `(n,)`. Conditional log probability of each sample in `X`,
-                conditioned on inherently conditional dimensions by `inherent_conditionals`
-                and other dimensions by `conditional_features`.
+            Conditional log probability for each sample in `X`, conditioned on
+            inherently conditional dimensions by `inherent_conditionals`
+            and other dimensions by `conditional_features`.
         """
         N = len(self.inherent_features)
 
@@ -270,9 +265,8 @@ class InterpolatedConditionalKernelDensity:
                 or keep given conditional values. Defaults to `False`.
 
         Returns:
-            samples (array): array of samples,
-                of shape `(n_samples, N + n_features)` if `conditional_variables is None`,
-                else `(n_samples, n_features - len(conditionals))`.
+            Array of samples of shape `(n_samples, N + n_features)` if `conditional_variables is None`,
+            or `(n_samples, n_features - len(conditionals))` otherwise.
         """
         N = len(self.inherent_features)
 
