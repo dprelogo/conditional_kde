@@ -11,13 +11,15 @@ class DataWhitener:
     Implements several algorithms, depending on the desired whitening properties.
 
     Args:
-        algorithm (str): either `None`, "center", "rescale", "PCA" or "ZCA".
-
-            - `None` - leaves the data as is.
-            - "center" - calculates mean in every dimension and removes it from the data.
-            - "rescale" - calculates mean and standard deviation in each dimension and rescales it to zero-mean, unit-variance. In the absence of high correlations between dimensions, this is often sufficient.
-            - "PCA" - data is transformed into its PCA space and divided by the standard deviation of each dimension
-            - "ZCA" - equivalent to the "PCA", with additional step of rotating back to original space. In this case, the final data still outputs 'in the same direction'.
+        algorithm (str): either `None`, `"center"`, `"rescale"`, `"PCA"` or `"ZCA"`.
+            **None** - leaves the data as is. **center** - calculates mean in
+            every dimension and removes it from the data. **rescale** - calculates
+            mean and standard deviation in each dimension and rescales it to zero-mean,
+            unit-variance. In the absence of high correlations between dimensions, this is often sufficient.
+            **PCA** - data is transformed into its PCA space and divided by the
+            standard deviation of each dimension. **ZCA** - equivalent to the `"PCA"`,
+            with additional step of rotating back to original space, i.e. the
+            orientation of space is preserved.
     """
 
     def __init__(self, algorithm="rescale"):
@@ -158,7 +160,7 @@ class Interpolator(RegularGridInterpolator):
         Returns:
             If function values were set during initialization, returns an array of interpolated values.
             If `return_aux is True` it will further return grid coordinates for every item in `xi`.
-            In the case method is "nearest", this will be only one relevant coordinate per `xi` sample, 
+            In the case method is "nearest", this will be only one relevant coordinate per `xi` sample,
             or multiple ones for "linear" method. For the latter, also weights of every coordinate will be returned.
         """
         if self.interpolate_values is False and return_aux is False:
