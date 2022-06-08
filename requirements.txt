@@ -3,4 +3,5 @@ scipy
 scikit-learn
 furo
 autoclasstoc
+IPython
 nbsphinx
