@@ -11,13 +11,12 @@ class ConditionalKernelDensity(KernelDensity):
     Probability calculations are inherited from `sklearn.neighbors.KernelDensity`.
     The only addition is a sampling function, where one can "cut" the pdf at
     the conditioned values and pull samples directly from conditional density.
-    Currently implemented only for a gaussian kernel. For all  arguments see 
+    Currently implemented only for a gaussian kernel. For all  arguments see
     `sklearn.neighbors.KernelDensity`.
 
     Args:
         rescale (bool): either to rescale the data or not. Good to use with
             `optimal_bandwidth` flag in `self.fit`.
-        
     """
 
     def __init__(
@@ -190,11 +189,6 @@ class ConditionalGaussianKernelDensity:
         bandwidth (float): the width of the Gaussian centered around every point.
             By default, it uses "optimal" bandwidth - Scott's parameter.
         rescale (bool): either to rescale the data or not.
-
-    Methods:
-        fit: fitting the data
-        score_samples: calculate the (un)conditional log-probabilities of the samples
-        sample: sample the conditional distribution
     """
 
     def __init__(
@@ -301,7 +295,7 @@ class ConditionalGaussianKernelDensity:
             features (list): optional, list defining names for every feature.
                 It's used for referencing conditional dimensions.
                 Defaults to `[0, 1, ..., n_features - 1]`.
-        
+
         Returns:
             An instance of itself.
         """
