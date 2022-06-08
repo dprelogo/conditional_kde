@@ -11,7 +11,7 @@ class DataWhitener:
     Implements several algorithms, depending on the desired whitening properties.
 
     Args:
-        - algorithm (str): either `None`, `"center"`, `"rescale"`, `"PCA"` or `"ZCA"`.
+        algorithm (str): either `None`, `"center"`, `"rescale"`, `"PCA"` or `"ZCA"`.
             **None** - leaves the data as is. **center** - calculates mean in
             every dimension and removes it from the data. **rescale** - calculates
             mean and standard deviation in each dimension and rescales it to zero-mean,
@@ -20,7 +20,6 @@ class DataWhitener:
             standard deviation of each dimension. **ZCA** - equivalent to the `"PCA"`,
             with additional step of rotating back to original space, i.e. the
             orientation of space is preserved.
-
     """
 
     def __init__(self, algorithm="rescale"):
