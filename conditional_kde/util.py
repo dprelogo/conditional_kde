@@ -127,6 +127,20 @@ class Interpolator(RegularGridInterpolator):
     Inherits from `scipy.interpolate.RegularGridInterpolator`.
     The difference with respect to the original class is to make
     weights and edges explicitly visible, for the more general usage case.
+
+    Args:
+        points (list): list of lists, where every sub-list defines the grid points.
+        values (array): array of function values to interpolate.
+            If not given, `Interpolator` won't return any values, only weights and edges.
+        method (str): either "linear" or "nearest", defining the interpolation method.
+            As the name says, "linear" returns linearly interpolated value
+            and "nearest" only the nearest value on the grid.
+        bounds_error (bool): either to raise an error if the point for which
+            interpolation is requested is out of the grid bounds.
+        fill_value (float): value to be filled for out of the grid points.
+
+    Methods:
+        __call__: compute the interpolation.
     """
 
     def __init__(
