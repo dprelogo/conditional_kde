@@ -49,7 +49,7 @@ class DataWhitener:
         else:
             self.μ = np.mean(X, axis=0, keepdims=True)
             if self.algorithm == "rescale":
-                self.Σ = np.var(X, axis=0)
+                self.Σ = np.diag(np.var(X, axis=0))
             elif self.algorithm in ["PCA", "ZCA"]:
                 self.Σ = np.cov(X.T)
                 evals, evecs = np.linalg.eigh(self.Σ)
@@ -57,8 +57,8 @@ class DataWhitener:
             self.W = np.identity(X.shape[-1], dtype=X.dtype)
             self.WI = np.identity(X.shape[-1], dtype=X.dtype)
         elif self.algorithm == "rescale":
-            self.W = np.diag(self.Σ ** (-1 / 2))
-            self.WI = np.diag(self.Σ ** (1 / 2))
+            self.W = np.diag(np.diag(self.Σ) ** (-1 / 2))
+            self.WI = np.diag(np.diag(self.Σ) ** (1 / 2))
         elif self.algorithm == "PCA":
             self.W = np.einsum("ij,kj->ik", np.diag(evals ** (-1 / 2)), evecs)
             self.WI = np.einsum("ij,jk->ik", evecs, np.diag(evals ** (1 / 2)))
