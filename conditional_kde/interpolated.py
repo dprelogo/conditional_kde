@@ -84,7 +84,7 @@ class InterpolatedConditionalKernelDensity:
             An instance of itself.
         """
         if isinstance(data, np.ndarray):
-            if len(data.shape < 3):
+            if len(data.shape) < 3:
                 raise ValueError(
                     "`data` should have at least 3 axes: one for 1D grid, one for samples, "
                     f"one for the rest of features, but its shape is {data.shape}"
