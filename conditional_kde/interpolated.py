@@ -19,20 +19,21 @@ class InterpolatedConditionalKernelDensity:
     Args:
         bandwidth (float): the width of the Gaussian centered around every point.
             By default, it uses "optimal" bandwidth - Scott's parameter.
-        rescale (bool): either to rescale the data or not.
+        whitening_algorithm (str): data whitening algorithm, either `None`, "rescale" or "ZCA".
+            See `util.DataWhitener` for more details. "rescale" by default.
     """
 
     def __init__(
         self,
         bandwidth=None,
-        rescale=True,
+        whitening_algorithm="rescale",
     ):
         if bandwidth is not None and not isinstance(bandwidth, (int, float)):
             raise TypeError(
                 f"Bandwith should be a number, but is {type(bandwidth).__name__}."
             )
         self.bandwidth = bandwidth
-        self.algorithm = "rescale" if rescale else None
+        self.algorithm = whitening_algorithm
 
         self.inherent_features = None  # all inherently conditional features
         self.features = None  # all other features
@@ -181,7 +182,7 @@ class InterpolatedConditionalKernelDensity:
 
         self.kdes = []
         for d in data:
-            kde = ConditionalGaussianKernelDensity()
+            kde = ConditionalGaussianKernelDensity(whitening_algorithm=self.algorithm)
             kde.fit(d.astype(float), features=self.features)
             self.kdes.append(kde)
         self.kdes = np.array(self.kdes, dtype=object)

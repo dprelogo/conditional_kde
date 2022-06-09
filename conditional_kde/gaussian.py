@@ -1,7 +1,6 @@
 """Module containing Gaussian versions of the Conditional KDE."""
 
 import numpy as np
-from sklearn.neighbors import KernelDensity
 from .util import DataWhitener
 
 
@@ -11,20 +10,25 @@ class ConditionalGaussianKernelDensity:
     Args:
         bandwidth (float): the width of the Gaussian centered around every point.
             By default, it uses "optimal" bandwidth - Scott's parameter.
-        rescale (bool): either to rescale the data or not.
+        whitening_algorithm (str): data whitening algorithm, either `None`, "rescale" or "ZCA".
+            See `util.DataWhitener` for more details. "rescale" by default.
     """
 
     def __init__(
         self,
         bandwidth=None,
-        rescale=True,
+        whitening_algorithm="rescale",
     ):
         if bandwidth is not None and not isinstance(bandwidth, (int, float)):
             raise TypeError(
                 f"Bandwith should be a number, but is {type(bandwidth).__name__}."
             )
         self.bandwidth = bandwidth
-        self.algorithm = "rescale" if rescale else None
+        if whitening_algorithm not in [None, "rescale", "ZCA"]:
+            raise ValueError(
+                f"Whitening lgorithm should be None, rescale or ZCA, but is {whitening_algorithm}."
+            )
+        self.algorithm = whitening_algorithm
 
         self.features = None  # names of features
         self.dw = None  # data whitener
@@ -35,16 +39,17 @@ class ConditionalGaussianKernelDensity:
         return -1 / (n_features + 4) * np.log10(n_samples)
 
     @staticmethod
-    def _log_prob(X, data, sigma, add_norm=True):
+    def _log_prob(X, data, cov, add_norm=True):
         """Log probability of a gaussian KDE distribution.
 
         Args:
             X (array): array of samples for which probability is calculated.
                 Of shape `(n, n_features)`.
             data (array): KDE data, of shape `(n_samples, n_features)`.
-            sigma (float, list, array): sigma of a gaussian distribution.
-                If float, it is shared for all features, otherwise it should be
-                a list/array of size `n_features`.
+            cov (float, array): covariance matrix of a gaussian distribution.
+                If float, it is a variance shared for all features.
+                If 1D array, it is a variance for every feature separately.
+                if 2D array, it is a full covariance matrix.
             add_norm (bool): either to add normalization factor to the calculation or not.
 
         Returns:
@@ -54,42 +59,86 @@ class ConditionalGaussianKernelDensity:
         X = np.atleast_2d(X)
         if X.shape[-1] != n_features:
             raise ValueError("`n_features` of both arrays should be the same.")
-        if not isinstance(sigma, (int, float, list, np.ndarray)):
+        if not isinstance(cov, (int, float, np.ndarray)):
             raise TypeError(
-                f"`sigma` should be a number, `list` or `numpy.ndarray`, "
-                f"but is {type(sigma).__name__}"
+                f"`cov` should be a number or `numpy.ndarray`, "
+                f"but is {type(cov).__name__}"
             )
-        if isinstance(sigma, (list, np.ndarray)) and len(sigma) != n_features:
-            raise ValueError("`sigma` should be of length `n_features`.")
-        if isinstance(sigma, list):
-            sigma = np.array(sigma, dtype=np.float32)
+        if isinstance(cov, (int, float)):
+            Σ_inv = np.identity(n_features, dtype=np.float32) / cov
+            Σ_det = cov**n_features
+        elif isinstance(cov, np.ndarray):
+            if len(cov.shape) == 1:
+                if len(cov) != n_features:
+                    raise ValueError("`cov` should be of length `n_features`.")
+                Σ_inv = np.diag(1 / cov)
+                Σ_det = np.prod(cov)
+            elif len(cov.shape) == 2:
+                if cov.shape != (n_features, n_features):
+                    raise ValueError(
+                        "`cov` should be of shape `(n_features, n_features)`."
+                    )
+                Σ_inv = np.linalg.inv(cov)
+                Σ_det = np.linalg.det(cov)
+            else:
+                raise ValueError(
+                    "Dimensionality of a covariance matrix cannot be larger than 2."
+                )
 
         def calculate_log_prob(x):
-            if isinstance(sigma, (int, float)):
-                delta = x - data
-                res = np.exp(-0.5 / sigma**2 * np.einsum("ij,ij->i", delta, delta))
-                return np.log(np.sum(res))
-            else:
-                delta = x - data
-                res = np.exp(
-                    -0.5 * np.einsum("ij,j,ij->i", delta, 1 / sigma**2, delta)
-                )
-                return np.log(np.sum(res))
+            delta = x - data
+            res = np.exp(-0.5 * np.einsum("ij,jk,ik->i", delta, Σ_inv, delta))
+            return np.log(np.sum(res))
 
         log_prob = np.apply_along_axis(calculate_log_prob, 1, X)
 
         if add_norm:
-            norm = np.log(n_samples) + 0.5 * n_features * np.log(2 * np.pi)
-            if isinstance(sigma, (int, float)):
-                norm += n_features * np.log(sigma)
-            else:
-                norm += np.sum(np.log(sigma))
+            norm = (
+                np.log(n_samples)
+                + 0.5 * n_features * np.log(2 * np.pi)
+                + 0.5 * np.log(Σ_det)
+            )
             return log_prob - norm
         else:
             return log_prob
 
     @staticmethod
-    def _conditional_weights(conditional_values, conditional_data, sigma):
+    def _covariance_decomposition(cov, cond_mask, cond_only=False):
+        """Decomposing covariance matrix into the unconditional, conditional and cross terms.
+
+        Args:
+            cov (array): covariance matrix.
+            cond_mask (array): boolean array defining conditional dimensions.
+            cond_only (bool): to return only conditional matrix or all decompositions.
+
+        Returns:
+            If `cond_only is True`, only conditional part of the covariance,
+            otherwise: conditional, unconditional and cross parts, respectively.
+        """
+        if len(cov) != len(cond_mask):
+            raise ValueError(
+                "Dimensionality of `cov` and `cond_mask` should be the same."
+            )
+        if len(cov.shape) != 2 or cov.shape[0] != cov.shape[-1]:
+            raise ValueError("`cov` should be 2D square matrix.")
+        mask_cond = np.outer(cond_mask, cond_mask)
+        shape_cond = (sum(cond_mask), sum(cond_mask))
+        if cond_only:
+            return cov[mask_cond].reshape(shape_cond)
+        else:
+            mask_uncond = np.outer(~cond_mask, ~cond_mask)
+            shape_uncond = (sum(~cond_mask), sum(~cond_mask))
+
+            mask_cross = np.outer(cond_mask, ~cond_mask)
+            shape_cross = (sum(cond_mask), sum(~cond_mask))
+            return (
+                cov[mask_cond].reshape(shape_cond),
+                cov[mask_uncond].reshape(shape_uncond),
+                cov[mask_cross].reshape(shape_cross),
+            )
+
+    @staticmethod
+    def _conditional_weights(conditional_values, conditional_data, cov):
         """Weights for the sampling from the conditional distribution.
 
         They amount to the conditioned part of the gaussian for every data point.
@@ -98,17 +147,24 @@ class ConditionalGaussianKernelDensity:
             conditional_values (array): of length `n_conditionals`.
             cond_data (array): of shape `(n_samples, n_conditionals)`.
                 Here non-conditional dimensions are already removed.
-            sigma (float, array): sigma of a gaussian distribution.
-                If float, it is shared for all conditioned features, otherwise it should be
-                array of size `n_conditionals`.
+            cov (float, array): covariance matrix.
+                If float, it is a variance shared for all features.
+                If 1D array, it is a variance for every feature separately.
+                if 2D array, it is a full covariance matrix.
 
         Returns:
             Normalized weights.
         """
-        weights = np.exp(
-            -0.5
-            * np.sum((conditional_values - conditional_data) ** 2 / sigma**2, axis=1)
-        )
+        delta = conditional_values - conditional_data
+        if isinstance(cov, float):
+            weights = np.exp(-0.5 / cov * np.einsum("ij,ij->i", delta, delta))
+        elif isinstance(cov, np.ndarray) and len(cov.shape) == 1:
+            weights = np.exp(-0.5 * np.einsum("ij,j,ij->i", delta, 1 / cov, delta))
+        elif isinstance(cov, np.ndarray) and len(cov.shape) == 2:
+            cov_inv = np.linalg.inv(cov)
+            weights = np.exp(-0.5 * np.einsum("ij,jk,ik->i", delta, cov_inv, delta))
+        else:
+            raise ValueError("`cov` cannot be more than 2D.")
 
         return weights / np.sum(weights)
 
@@ -170,7 +226,8 @@ class ConditionalGaussianKernelDensity:
             Conditional log probability for each sample in `X`.
         """
         if conditional_features is None:
-            return self._log_prob(X, self.data, self.bandwidth)
+            X = np.atleast_2d(X)
+            return self._log_prob(X, self.dw.data, self.dw.Σ)
         else:
             if not all(k in self.features for k in conditional_features):
                 raise ValueError(
@@ -189,17 +246,18 @@ class ConditionalGaussianKernelDensity:
             cond_variables = np.array(cond_variables, dtype=bool)
 
             X = np.atleast_2d(X)
-            p_full = self._log_prob(
-                X, self.dw.data, self.bandwidth * np.diag(self.dw.WI)
+            p_full = self._log_prob(X, self.dw.data, self.dw.Σ * self.bandwidth**2)
+            Σ_marginal = self._covariance_decomposition(
+                self.dw.Σ * self.bandwidth**2, cond_variables, cond_only=True
             )
             p_marginal = self._log_prob(
                 X[:, cond_variables],
                 self.dw.data[:, cond_variables],
-                (self.bandwidth * np.diag(self.dw.WI))[cond_variables],
+                Σ_marginal,
             )
             return p_full - p_marginal
 
-    def sample(
+    def _sample(
         self,
         conditionals=None,
         n_samples=1,
@@ -208,22 +266,9 @@ class ConditionalGaussianKernelDensity:
     ):
         """Generate random samples from the conditional model.
 
-        Args:
-            conditionals (dict): desired variables (features) to condition upon.
-                Dictionary keys should be only feature names from `features`.
-                For example, if `self.features == ["a", "b", "c"]` and one would like to condition
-                on "a" and "c", then `conditionas = {"a": cond_val_a, "c": cond_val_c}`.
-                Defaults to `None`, i.e. normal KDE.
-            n_samples (int): number of samples to generate. Defaults to 1.
-            random_state (np.random.RandomState, int): seed or `RandomState` instance, optional.
-                Determines random number generation used to generate
-                random samples. See `Glossary <random_state>`.
-            keep_dims (bool): whether to return non-conditioned dimensions only
-                or keep given conditional values. Defaults to `False`.
-
-        Returns:
-            Array of samples, of shape `(n_samples, n_features)` if `conditional_variables is None`,
-            or `(n_samples, n_features - len(conditionals))` otherwise.
+        Here there is an assumption that all dimensions have not been distorted,
+        but only rescaled. In other words, it works for `None` and "rescale"
+        whitening algorithms, but not for "ZCA".
         """
         data = self.dw.whitened_data
         if isinstance(random_state, np.random.RandomState):
@@ -261,7 +306,7 @@ class ConditionalGaussianKernelDensity:
             cond_values = self.dw.whiten(cond_values)[cond_variables]
 
             weights = self._conditional_weights(
-                cond_values, data[:, cond_variables], self.bandwidth
+                cond_values, data[:, cond_variables], self.bandwidth**2
             )
             idx = rs.choice(data.shape[0], n_samples, p=weights)
 
@@ -279,3 +324,129 @@ class ConditionalGaussianKernelDensity:
                 return sample
             else:
                 return sample[:, ~cond_variables]
+
+    def _sample_general(
+        self,
+        conditionals=None,
+        n_samples=1,
+        random_state=None,
+        keep_dims=False,
+    ):
+        """Generate random samples from the conditional model.
+
+        This function is the most general sampler, without any assumptions,
+        with bigger computational overhead. It should be used for ZCA.
+        """
+        if isinstance(random_state, np.random.RandomState):
+            rs = random_state
+        elif random_state is None or isinstance(random_state, int):
+            rs = np.random.RandomState(seed=random_state)
+        else:
+            raise TypeError("`random_state` should be `int` or `RandomState`.")
+
+        if conditionals is None:
+            idx = rs.choice(self.dw.data.shape[0], n_samples)
+            return np.apply_along_axis(
+                lambda x: rs.multivariate_normal(x, self.dw.Σ * self.bandwidth**2),
+                1,
+                np.atleast_2d(self.dw.data[idx]),
+            )
+        else:
+            if not isinstance(conditionals, dict):
+                raise TypeError(
+                    "`conditional_features` should be dictionary, but is "
+                    f"{type(conditionals).__name__}."
+                )
+            if not all(k in self.features for k in conditionals.keys()):
+                raise ValueError(
+                    "All conditionals should be in features. If you haven't "
+                    "specified features, pick integers from `[0, 1, ..., n_features - 1]`."
+                )
+            if len(conditionals) == len(self.features):
+                raise ValueError("One cannot condition on all features.")
+
+            # helping variables for conditionals
+            cond_variables = [
+                True if f in conditionals.keys() else False for f in self.features
+            ]
+            cond_values = [
+                conditionals[f] for f in self.features if f in conditionals.keys()
+            ]
+            cond_variables = np.array(cond_variables, dtype=bool)
+            cond_values = np.array(cond_values, dtype=np.float32)
+
+            # decomposing the covarianve
+            Σ_cond, Σ_uncond, Σ_cross = self._covariance_decomposition(
+                self.dw.Σ * self.bandwidth**2, cond_variables
+            )
+            # weights are defined from conditional part
+            weights = self._conditional_weights(
+                cond_values,
+                self.dw.data[:, cond_variables],
+                Σ_cond,
+            )
+            idx = rs.choice(self.dw.data.shape[0], n_samples, p=weights)
+
+            # distribution is defined from corrected unconditional part
+            Σ_cond_inv = np.linalg.inv(Σ_cond)
+            corr_Σ = Σ_uncond - Σ_cross.T @ Σ_cond_inv @ Σ_cross
+            corr_data = (
+                self.dw.data[:, ~cond_variables]
+                + (cond_values - self.dw.data[:, cond_variables]) @ Σ_cond_inv @ Σ_cross
+            )
+            sample = np.empty((n_samples, len(self.features)))
+            sample[:, ~cond_variables] = np.apply_along_axis(
+                lambda x: rs.multivariate_normal(x, corr_Σ),
+                1,
+                np.atleast_2d(corr_data[idx]),
+            )
+
+            sample[:, cond_variables] = np.broadcast_to(
+                cond_values, (n_samples, len(cond_values))
+            )
+
+            if keep_dims:
+                return sample
+            else:
+                return sample[:, ~cond_variables]
+
+    def sample(
+        self,
+        conditionals=None,
+        n_samples=1,
+        random_state=None,
+        keep_dims=False,
+    ):
+        """Generate random samples from the conditional model.
+
+        Args:
+            conditionals (dict): desired variables (features) to condition upon.
+                Dictionary keys should be only feature names from `features`.
+                For example, if `self.features == ["a", "b", "c"]` and one would like to condition
+                on "a" and "c", then `conditionas = {"a": cond_val_a, "c": cond_val_c}`.
+                Defaults to `None`, i.e. normal KDE.
+            n_samples (int): number of samples to generate. Defaults to 1.
+            random_state (np.random.RandomState, int): seed or `RandomState` instance, optional.
+                Determines random number generation used to generate
+                random samples. See `Glossary <random_state>`.
+            keep_dims (bool): whether to return non-conditioned dimensions only
+                or keep given conditional values. Defaults to `False`.
+
+        Returns:
+            Array of samples, of shape `(n_samples, n_features)` if `conditional_variables is None`,
+            or `(n_samples, n_features - len(conditionals))` otherwise.
+        """
+        if self.algorithm == "ZCA":
+            return self._sample_general(
+                conditionals=conditionals,
+                n_samples=n_samples,
+                random_state=random_state,
+                keep_dims=keep_dims,
+            )
+        else:
+            return self._sample(
+                conditionals=conditionals,
+                n_samples=n_samples,
+                random_state=random_state,
+                keep_dims=keep_dims,
+            )
