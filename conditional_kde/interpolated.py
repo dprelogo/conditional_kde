@@ -89,7 +89,7 @@ class InterpolatedConditionalKernelDensity:
                     "`data` should have at least 3 axes: one for 1D grid, one for samples, "
                     f"one for the rest of features, but its shape is {data.shape}"
                 )
-            N = data.shape - 2
+            N = len(data.shape) - 2
             number_of_samples = data.shape[:N]
             n_features = data.shape[-1]
             data = data.reshape((np.prod(number_of_samples),) + data.shape[-2:])
