@@ -38,15 +38,19 @@ class DataWhitener:
         Returns:
             Whitened array.
         """
-        if self.algorithm is not None:
+        if self.algorithm is None:
+            self.μ = np.zeros((1, X.shape[-1]), dtype=X.dtype)
+        else:
             self.μ = np.mean(X, axis=0, keepdims=True)
             if self.algorithm == "rescale":
                 Σ = np.var(X, axis=0)
             elif self.algorithm in ["PCA", "ZCA"]:
                 Σ = np.cov(X.T)
                 evals, evecs = np.linalg.eigh(Σ)
-
-        if self.algorithm == "rescale":
+        if self.algorithm is None:
+            self.W = np.identity(X.shape[-1], dtype=X.dtype)
+            self.WI = np.identity(X.shape[-1], dtype=X.dtype)
+        elif self.algorithm == "rescale":
             self.W = np.diag(Σ ** (-1 / 2))
             self.WI = np.diag(Σ ** (1 / 2))
         elif self.algorithm == "PCA":
