@@ -27,6 +27,11 @@ class DataWhitener:
             raise ValueError("algorithm should be None, center, rescale, PCA or ZCA.")
         self.algorithm = algorithm
 
+        self.μ = None  # mean
+        self.Σ = None  # covariance matrix
+        self.W = None  # whitening matrix
+        self.WI = None  # unwhitening matrix
+
     def fit(self, X, save_data=False):
         """Fitting the whitener on the data X.
 
@@ -40,19 +45,20 @@ class DataWhitener:
         """
         if self.algorithm is None:
             self.μ = np.zeros((1, X.shape[-1]), dtype=X.dtype)
+            self.Σ = np.identity(X.shape[-1], dtype=X.dtype)
         else:
             self.μ = np.mean(X, axis=0, keepdims=True)
             if self.algorithm == "rescale":
-                Σ = np.var(X, axis=0)
+                self.Σ = np.var(X, axis=0)
             elif self.algorithm in ["PCA", "ZCA"]:
-                Σ = np.cov(X.T)
-                evals, evecs = np.linalg.eigh(Σ)
+                self.Σ = np.cov(X.T)
+                evals, evecs = np.linalg.eigh(self.Σ)
         if self.algorithm is None:
             self.W = np.identity(X.shape[-1], dtype=X.dtype)
             self.WI = np.identity(X.shape[-1], dtype=X.dtype)
         elif self.algorithm == "rescale":
-            self.W = np.diag(Σ ** (-1 / 2))
-            self.WI = np.diag(Σ ** (1 / 2))
+            self.W = np.diag(self.Σ ** (-1 / 2))
+            self.WI = np.diag(self.Σ ** (1 / 2))
         elif self.algorithm == "PCA":
             self.W = np.einsum("ij,kj->ik", np.diag(evals ** (-1 / 2)), evecs)
             self.WI = np.einsum("ij,jk->ik", evecs, np.diag(evals ** (1 / 2)))
