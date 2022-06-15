@@ -334,8 +334,8 @@ class ConditionalGaussianKernelDensity:
     ):
         """Generate random samples from the conditional model.
 
-        This function is the most general sampler, without any assumptions,
-        with bigger computational overhead. It should be used for ZCA.
+        This function is the most general sampler, without any assumptions.
+        It should be used for ZCA.
         """
         if isinstance(random_state, np.random.RandomState):
             rs = random_state
@@ -395,11 +395,16 @@ class ConditionalGaussianKernelDensity:
                 + (cond_values - self.dw.data[:, cond_variables]) @ Σ_cond_inv @ Σ_cross
             )
             sample = np.empty((n_samples, len(self.features)))
-            sample[:, ~cond_variables] = np.apply_along_axis(
-                lambda x: rs.multivariate_normal(x, corr_Σ),
-                1,
-                np.atleast_2d(corr_data[idx]),
-            )
+
+            # sample[:, ~cond_variables] = np.apply_along_axis(
+            #     lambda x: rs.multivariate_normal(x, corr_Σ),
+            #     1,
+            #     np.atleast_2d(corr_data[idx]),
+            # )
+
+            sample[:, ~cond_variables] = rs.multivariate_normal(
+                np.zeros(len(corr_Σ)), corr_Σ, n_samples
+            ) + np.atleast_2d(corr_data[idx])
 
             sample[:, cond_variables] = np.broadcast_to(
                 cond_values, (n_samples, len(cond_values))
