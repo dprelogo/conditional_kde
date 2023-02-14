@@ -32,26 +32,39 @@ class DataWhitener:
         self.W = None  # whitening matrix
         self.WI = None  # unwhitening matrix
 
-    def fit(self, X, save_data=False):
+    def fit(self, X, weights=None, save_data=False):
         """Fitting the whitener on the data X.
 
         Args:
             X (array): of shape `(n_samples, n_dim)`.
+            weights (array): of shape `(n_samples,)`, weights of each sample in `X`.
             save_data (bool): if `True`, saves the data and whitened data as
                 `self.data`, `self.whitened_data`.
 
         Returns:
             Whitened array.
         """
+        if weights is None:
+            weights = np.ones((len(X), 1), dtype=X.dtype)
+        else:
+            if len(weights) != len(X):
+                raise ValueError("Weights and X should be of the same length.")
+            weights = weights / np.sum(weights) * len(weights)
+            weights = weights.reshape(-1, 1)
+
         if self.algorithm is None:
             self.μ = np.zeros((1, X.shape[-1]), dtype=X.dtype)
             self.Σ = np.identity(X.shape[-1], dtype=X.dtype)
         else:
-            self.μ = np.mean(X, axis=0, keepdims=True)
+            # self.μ = np.mean(X, axis=0, keepdims=True)
+            self.μ = np.sum(weights * X, axis=0, keepdims=True) / np.sum(weights)
+            dX = X - self.μ
+            self.Σ = np.einsum("ji,jk->ik", weights * dX, dX) / (np.sum(weights) - 1)
             if self.algorithm == "rescale":
-                self.Σ = np.diag(np.var(X, axis=0))
+                # self.Σ = np.diag(np.var(X, axis=0))
+                self.Σ = np.diag(np.diag(self.Σ))
             elif self.algorithm in ["PCA", "ZCA"]:
-                self.Σ = np.cov(X.T)
+                # self.Σ = np.cov(X.T)
                 evals, evecs = np.linalg.eigh(self.Σ)
         if self.algorithm is None:
             self.W = np.identity(X.shape[-1], dtype=X.dtype)
