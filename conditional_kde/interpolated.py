@@ -25,13 +25,13 @@ class InterpolatedConditionalKernelDensity:
             (2) "optimized", which minimizes cross entropy to find the optimal bandwidth, or
             (3) `float`, specifying the actual value.
             By default, it uses Scott's parameter.
-        **kwargs: additional kwargs used in the case of "optimized" bandwidth
+        **kwargs (dict): additional kwargs used in the case of "optimized" bandwidth.
             steps (int): how many steps to use in optimization, 10 by default.
             cv_fold (int): cross validation fold, 5 by default.
             n_jobs (int): number of jobs to run cross validation in parallel,
-                -1 by default, i.e. using all available processors.
+            -1 by default, i.e. using all available processors.
             verbose (int): verbosity of the cross validation run,
-                see `sklearn.model_selection.GridSearchCV` for more details.
+            see `sklearn.model_selection.GridSearchCV` for more details.
     """
 
     def __init__(
