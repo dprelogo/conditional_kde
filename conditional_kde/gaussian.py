@@ -1,6 +1,9 @@
 """Module containing Gaussian versions of the Conditional KDE."""
 
 import numpy as np
+from scipy.optimize import minimize_scalar
+from sklearn.neighbors import KernelDensity
+from sklearn.model_selection import train_test_split, GridSearchCV
 from .util import DataWhitener
 
 
@@ -8,27 +11,52 @@ class ConditionalGaussianKernelDensity:
     """Conditional Kernel Density estimator.
 
     Args:
-        bandwidth (float): the width of the Gaussian centered around every point.
-            By default, it uses "optimal" bandwidth - Scott's parameter.
         whitening_algorithm (str): data whitening algorithm, either `None`, "rescale" or "ZCA".
             See `util.DataWhitener` for more details. "rescale" by default.
+        bandwidth (str, float): the width of the Gaussian centered around every point.
+            It can be either:
+            (1) "scott", using Scott's parameter,
+            (2) "optimized", which minimizes cross entropy to find the optimal bandwidth, or
+            (3) `float`, specifying the actual value.
+            By default, it uses Scott's parameter.
+        **kwargs: additional kwargs used in the case of "optimized" bandwidth
+            steps (int): how many steps to use in optimization, 10 by default.
+            cv_fold (int): cross validation fold, 5 by default.
+            n_jobs (int): number of jobs to run cross validation in parallel,
+                -1 by default, i.e. using all available processors.
+            verbose (int): verbosity of the cross validation run,
+                see `sklearn.model_selection.GridSearchCV` for more details.
     """
 
     def __init__(
         self,
-        bandwidth=None,
         whitening_algorithm="rescale",
+        bandwidth="scott",
+        **kwargs,
     ):
-        if bandwidth is not None and not isinstance(bandwidth, (int, float)):
-            raise TypeError(
-                f"Bandwith should be a number, but is {type(bandwidth).__name__}."
-            )
-        self.bandwidth = bandwidth
         if whitening_algorithm not in [None, "rescale", "ZCA"]:
             raise ValueError(
                 f"Whitening lgorithm should be None, rescale or ZCA, but is {whitening_algorithm}."
             )
         self.algorithm = whitening_algorithm
+
+        if not isinstance(bandwidth, (int, float)):
+            if not bandwidth in ["scott", "optimized"]:
+                raise ValueError(
+                    f"""Bandwidth should be a number, "scott" or "optimized", 
+                    but has value {bandwidth} and type {type(bandwidth).__name__}."""
+                )
+        self.bandwidth = bandwidth
+
+        if self.bandwidth == "optimized":
+            self.bandwidth_kwargs = {
+                "steps": kwargs.get("steps", 10),
+                "cv_fold": kwargs.get("cv_fold", 5),
+                "n_jobs": kwargs.get("n_jobs", -1),
+                "verbose": kwargs.get("verbose", 0),
+            }
+        else:
+            self.bandwidth_kwargs = {}
 
         self.features = None  # names of features
         self.dw = None  # data whitener
@@ -168,13 +196,15 @@ class ConditionalGaussianKernelDensity:
 
         return weights / np.sum(weights)
 
-    def fit(self, X, bandwidth=None, features=None):
+    def fit(
+        self,
+        X,
+        features=None,
+    ):
         """Fitting the Conditional Kernel Density.
 
         Args:
             X (array): data of shape `(n_samples, n_features)`.
-            bandwidth (float): the width of the Gaussian centered around every point.
-                By default, it uses "optimal" bandwidth - Scott's parameter.
             features (list): optional, list defining names for every feature.
                 It's used for referencing conditional dimensions.
                 Defaults to `[0, 1, ..., n_features - 1]`.
@@ -183,16 +213,6 @@ class ConditionalGaussianKernelDensity:
             An instance of itself.
         """
         n_samples, n_features = X.shape
-
-        if bandwidth is not None and not isinstance(bandwidth, (int, float)):
-            raise TypeError(
-                f"Bandwith should be a number, but is {type(bandwidth).__name__}."
-            )
-        if bandwidth is not None:
-            self.bandwidth = bandwidth
-        else:
-            if self.bandwidth is None:
-                self.bandwidth = 10 ** self.log_scott(n_samples, n_features)
 
         if features is None:
             self.features = list(range(n_features))
@@ -211,6 +231,24 @@ class ConditionalGaussianKernelDensity:
         self.dw = DataWhitener(self.algorithm)
         self.dw.fit(X, save_data=True)
 
+        if self.bandwidth == "scott":
+            self.bandwidth = 10 ** self.log_scott(n_samples, n_features)
+        elif self.bandwidth == "optimized":
+            log_scott = self.log_scott(n_samples, n_features)
+            model = GridSearchCV(
+                KernelDensity(),
+                {
+                    "bandwidth": np.logspace(
+                        log_scott - 1, log_scott + 1, num=self.bandwidth_kwargs["steps"]
+                    )
+                },
+                cv=self.bandwidth_kwargs["cv_fold"],
+                n_jobs=self.bandwidth_kwargs["n_jobs"],
+                verbose=self.bandwidth_kwargs["verbose"],
+            )
+            model.fit(self.dw.whitened_data)
+            self.bandwidth = model.best_params_["bandwidth"]
+
         return self
 
     def score_samples(self, X, conditional_features=None):
@@ -227,7 +265,7 @@ class ConditionalGaussianKernelDensity:
         """
         if conditional_features is None:
             X = np.atleast_2d(X)
-            return self._log_prob(X, self.dw.data, self.dw.Σ)
+            return self._log_prob(X, self.dw.data, self.dw.Σ * self.bandwidth**2)
         else:
             if not all(k in self.features for k in conditional_features):
                 raise ValueError(

@@ -17,23 +17,52 @@ class InterpolatedConditionalKernelDensity:
     for the inherently conditional dimensions, and slices through others as before.
 
     Args:
-        bandwidth (float): the width of the Gaussian centered around every point.
-            By default, it uses "optimal" bandwidth - Scott's parameter.
         whitening_algorithm (str): data whitening algorithm, either `None`, "rescale" or "ZCA".
             See `util.DataWhitener` for more details. "rescale" by default.
+        bandwidth (str, float): the width of the Gaussian centered around every point.
+            It can be either:
+            (1) "scott", using Scott's parameter,
+            (2) "optimized", which minimizes cross entropy to find the optimal bandwidth, or
+            (3) `float`, specifying the actual value.
+            By default, it uses Scott's parameter.
+        **kwargs: additional kwargs used in the case of "optimized" bandwidth
+            steps (int): how many steps to use in optimization, 10 by default.
+            cv_fold (int): cross validation fold, 5 by default.
+            n_jobs (int): number of jobs to run cross validation in parallel,
+                -1 by default, i.e. using all available processors.
+            verbose (int): verbosity of the cross validation run,
+                see `sklearn.model_selection.GridSearchCV` for more details.
     """
 
     def __init__(
         self,
-        bandwidth=None,
         whitening_algorithm="rescale",
+        bandwidth="scott",
+        **kwargs,
     ):
-        if bandwidth is not None and not isinstance(bandwidth, (int, float)):
-            raise TypeError(
-                f"Bandwith should be a number, but is {type(bandwidth).__name__}."
+        if whitening_algorithm not in [None, "rescale", "ZCA"]:
+            raise ValueError(
+                f"Whitening lgorithm should be None, rescale or ZCA, but is {whitening_algorithm}."
             )
-        self.bandwidth = bandwidth
         self.algorithm = whitening_algorithm
+
+        if not isinstance(bandwidth, (int, float)):
+            if not bandwidth in ["scott", "optimized"]:
+                raise ValueError(
+                    f"""Bandwidth should be a number, "scott" or "optimized", 
+                    but has value {bandwidth} and type {type(bandwidth).__name__}."""
+                )
+        self.bandwidth = bandwidth
+
+        if self.bandwidth == "optimized":
+            self.bandwidth_kwargs = {
+                "steps": kwargs.get("steps", 10),
+                "cv_fold": kwargs.get("cv_fold", 5),
+                "n_jobs": kwargs.get("n_jobs", -1),
+                "verbose": kwargs.get("verbose", 0),
+            }
+        else:
+            self.bandwidth_kwargs = {}
 
         self.inherent_features = None  # all inherently conditional features
         self.features = None  # all other features
@@ -182,7 +211,11 @@ class InterpolatedConditionalKernelDensity:
 
         self.kdes = []
         for d in data:
-            kde = ConditionalGaussianKernelDensity(whitening_algorithm=self.algorithm)
+            kde = ConditionalGaussianKernelDensity(
+                whitening_algorithm=self.algorithm,
+                bandwidth=self.bandwidth,
+                **self.bandwidth_kwargs,
+            )
             kde.fit(d.astype(float), features=self.features)
             self.kdes.append(kde)
         self.kdes = np.array(self.kdes, dtype=object)
