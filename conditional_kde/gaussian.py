@@ -20,7 +20,7 @@ class ConditionalGaussianKernelDensity:
             (2) "optimized", which minimizes cross entropy to find the optimal bandwidth, or\n
             (3) `float`, specifying the actual value.\n
             By default, it uses Scott's parameter.
-        **kwargs (dict): additional kwargs used in the case of "optimized" bandwidth.
+        **kwargs: additional kwargs used in the case of "optimized" bandwidth.
 
             steps (int): how many steps to use in optimization, 10 by default.\n
             cv_fold (int): cross validation fold, 5 by default.\n
