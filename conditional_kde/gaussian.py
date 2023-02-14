@@ -14,18 +14,20 @@ class ConditionalGaussianKernelDensity:
         whitening_algorithm (str): data whitening algorithm, either `None`, "rescale" or "ZCA".
             See `util.DataWhitener` for more details. "rescale" by default.
         bandwidth (str, float): the width of the Gaussian centered around every point.
+
             It can be either:\n
             (1) "scott", using Scott's parameter,\n
             (2) "optimized", which minimizes cross entropy to find the optimal bandwidth, or\n
             (3) `float`, specifying the actual value.\n
             By default, it uses Scott's parameter.
-        **kwargs (dict): additional kwargs used in the case of "optimized" bandwidth.\n
+        **kwargs (dict): additional kwargs used in the case of "optimized" bandwidth.
+
             steps (int): how many steps to use in optimization, 10 by default.\n
             cv_fold (int): cross validation fold, 5 by default.\n
             n_jobs (int): number of jobs to run cross validation in parallel,
             -1 by default, i.e. using all available processors.\n
             verbose (int): verbosity of the cross validation run,
-            see `sklearn.model_selection.GridSearchCV` for more details.
+            for more details see `sklearn.model_selection.GridSearchCV`.
     """
 
     def __init__(
