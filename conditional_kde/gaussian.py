@@ -251,10 +251,13 @@ class ConditionalGaussianKernelDensity:
             log_weights_sum = logsumexp(log_weights, axis=1, keepdims=True)
 
         log_weights -= log_weights_sum
-        mask = log_weights < -20
+        mask = log_weights < -22
         weights = np.exp(log_weights)
         weights[mask] = 0.0
-        return weights
+        if conditional_values.ndim == 1:
+            return weights / np.sum(weights)
+        else:
+            return weights / np.sum(weights, axis=1, keepdims=True)
 
     def fit(
         self,
