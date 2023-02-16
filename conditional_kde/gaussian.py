@@ -426,16 +426,20 @@ class ConditionalGaussianKernelDensity:
             cond_variables = np.array(cond_variables, dtype=bool)
 
             if vectorized_conditionals:
-                cond_values = np.zeros(n_samples, len(self.features), dtype=np.float32)
+                cond_values = np.zeros(
+                    (n_samples, len(self.features)), dtype=np.float32
+                )
                 for i, f in enumerate(self.features):
                     if f in conditionals.keys():
                         cond_values[:, i] = conditionals[f]
+                cond_values = self.dw.whiten(cond_values)[:, cond_variables]
+
             else:
                 cond_values = np.zeros(len(self.features), dtype=np.float32)
                 for i, f in enumerate(self.features):
                     if f in conditionals.keys():
                         cond_values[i] = conditionals[f]
-            cond_values = self.dw.whiten(cond_values)[cond_variables]
+                cond_values = self.dw.whiten(cond_values)[cond_variables]
 
             weights = self._conditional_weights(
                 cond_values, data[:, cond_variables], self.bandwidth**2
@@ -503,8 +507,11 @@ class ConditionalGaussianKernelDensity:
             cond_values = [
                 conditionals[f] for f in self.features if f in conditionals.keys()
             ]
-            cond_variables = np.concatenate(cond_variables, dtype=bool)
-            cond_values = np.stack(cond_values, axis=-1, dtype=np.float32)
+            cond_variables = np.array(cond_variables, dtype=bool)
+            if vectorized_conditionals:
+                cond_values = np.stack(cond_values, axis=-1).astype(np.float32)
+            else:
+                cond_values = np.array(cond_values, dtype=np.float32)
 
             # decomposing the covarianve
             Σ_cond, Σ_uncond, Σ_cross = self._covariance_decomposition(
