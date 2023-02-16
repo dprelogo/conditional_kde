@@ -284,17 +284,23 @@ class InterpolatedConditionalKernelDensity:
         random_state=None,
         keep_dims=False,
     ):
-        """Generate random samples from the conditional model.
+        """Generate random samples from the conditional model. For `inherent_condtitionals`,
+        there's only one mode of sampling, where only scalar values are accepted.
+        For `conditionals` there are two different modes:
+        (1) specify conditionals as scalar values and sample `n_samples` out of distribution.
+        (2) specify conditionals as an array, where the number of samples will be the length of an array.
 
         Args:
             inherent_conditionals (dict): values of inherent (grid) features.
                 This values are used to interpolate on the grid.
                 All inherently conditional dimensions must be defined.
-            conditionals (dict): other desired variables (features) to condition upon.
+            conditionals (dict): desired variables (features) to condition upon.
                 Dictionary keys should be only feature names from `features`.
                 For example, if `self.features == ["a", "b", "c"]` and one would like to condition
-                on "a" and "c", then `conditionas = {"a": cond_val_a, "c": cond_val_c}`.
-                Defaults to `None`, i.e. no additionally conditioned variables.
+                on "a" and "c", then `conditionals = {"a": cond_val_a, "c": cond_val_c}`.
+                Conditioned values can be either `float` or `array`, where in the case of the
+                latter, all conditioned arrays have to be of the same size.
+                Defaults to `None`, i.e. normal KDE.
             n_samples (int): number of samples to generate. Defaults to 1.
             random_state (np.random.RandomState, int): seed or `RandomState` instance, optional.
                 Determines random number generation used to generate
@@ -344,6 +350,10 @@ class InterpolatedConditionalKernelDensity:
                 )
                 for kde in kdes
             ]
+
+            # I shouldn't use old n_samples further, as it can differ for the vectorized conditionals
+            n_samples = len(all_samples[0])
+
             all_samples = np.concatenate(all_samples, axis=0)
             all_weights = [np.ones(n_samples) * w for w in weights]
             all_weights = np.concatenate(all_weights)
@@ -370,6 +380,10 @@ class InterpolatedConditionalKernelDensity:
                 random_state=rs,
                 keep_dims=keep_dims,
             )
+
+            # I shouldn't use old n_samples further, as it can differ for the vectorized conditionals
+            n_samples = len(samples)
+
             if keep_dims:
                 np.stack(
                     [
