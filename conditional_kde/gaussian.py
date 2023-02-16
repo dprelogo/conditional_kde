@@ -199,10 +199,10 @@ class ConditionalGaussianKernelDensity:
                 raise ValueError("`cov` cannot be more than 2D.")
 
             # calculate exp(weights) in a more stable way
-            log_weights_sum = logsumexp(weights)
+            log_weights_sum = logsumexp(log_weights)
         else:
             if isinstance(cov, float):
-                weights = (
+                log_weights = (
                     -0.5
                     / cov
                     * (
@@ -217,7 +217,7 @@ class ConditionalGaussianKernelDensity:
                     )
                 )
             elif isinstance(cov, np.ndarray) and len(cov.shape) == 1:
-                weights = (
+                log_weights = (
                     -0.5
                     * np.einsum(
                         "ij,j,ij->i", conditional_values, 1 / cov, conditional_values
@@ -232,7 +232,7 @@ class ConditionalGaussianKernelDensity:
                 )
             elif isinstance(cov, np.ndarray) and len(cov.shape) == 2:
                 cov_inv = np.linalg.inv(cov)
-                weights = (
+                log_weights = (
                     -0.5
                     * np.einsum(
                         "ij,jk,ik->i", conditional_values, cov_inv, conditional_values
@@ -245,7 +245,10 @@ class ConditionalGaussianKernelDensity:
                         "ij,jk,lk->il", conditional_values, cov_inv, conditional_data
                     )
                 )
-                log_weights_sum = logsumexp(weights, axis=1, keepdims=True)
+            else:
+                raise ValueError("`cov` cannot be more than 2D.")
+
+            log_weights_sum = logsumexp(log_weights, axis=1, keepdims=True)
 
         log_weights -= log_weights_sum
         mask = log_weights < -20
