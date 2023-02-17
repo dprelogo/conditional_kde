@@ -485,9 +485,7 @@ class ConditionalGaussianKernelDensity:
                 #     weights,
                 # )
                 unit_sample = rs.uniform(size=n_samples)[:, np.newaxis]
-                idx = np.argmin(
-                    np.abs(np.cumsum(weights, axis=1) - unit_sample), axis=1
-                )
+                idx = np.argmax(np.cumsum(weights, axis=1) > unit_sample, axis=1)
             else:
                 idx = rs.choice(data.shape[0], n_samples, p=weights)
 
@@ -568,9 +566,7 @@ class ConditionalGaussianKernelDensity:
                 #     weights,
                 # )
                 unit_sample = rs.uniform(size=n_samples)[:, np.newaxis]
-                idx = np.argmin(
-                    np.abs(np.cumsum(weights, axis=1) - unit_sample), axis=1
-                )
+                idx = np.argmax(np.cumsum(weights, axis=1) > unit_sample, axis=1)
             else:
                 idx = rs.choice(self.dw.data.shape[0], n_samples, p=weights)
             selected_data = np.atleast_2d(self.dw.data[idx])
