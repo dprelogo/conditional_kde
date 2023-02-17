@@ -479,10 +479,14 @@ class ConditionalGaussianKernelDensity:
                 cond_values, data[:, cond_variables], self.bandwidth**2
             )
             if vectorized_conditionals:
-                idx = np.apply_along_axis(
-                    lambda x: rs.choice(data.shape[0], p=x),
-                    1,
-                    weights,
+                # idx = np.apply_along_axis(
+                #     lambda x: rs.choice(data.shape[0], p=x),
+                #     1,
+                #     weights,
+                # )
+                unit_sample = rs.uniform(size=n_samples)[:, np.newaxis]
+                idx = np.argmin(
+                    np.abs(np.cumsum(weights, axis=1) - unit_sample), axis=1
                 )
             else:
                 idx = rs.choice(data.shape[0], n_samples, p=weights)
