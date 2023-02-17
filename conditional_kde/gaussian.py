@@ -169,7 +169,9 @@ class ConditionalGaussianKernelDensity:
             )
 
     @staticmethod
-    def _conditional_weights(conditional_values, conditional_data, cov):
+    def _conditional_weights(
+        conditional_values, conditional_data, cov, optimize_memory=False
+    ):
         """Weights for the sampling from the conditional distribution.
 
         They amount to the conditioned part of the gaussian for every data point.
@@ -182,6 +184,8 @@ class ConditionalGaussianKernelDensity:
                 If float, it is a variance shared for all features.
                 If 1D array, it is a variance for every feature separately.
                 if 2D array, it is a full covariance matrix.
+            optimize_memory (bool): only for the vectorized conditionals, it makes an
+                effort to minimize memory footprint, and enlarges computational time.
 
         Returns:
             Normalized weights.
@@ -201,52 +205,82 @@ class ConditionalGaussianKernelDensity:
             # calculate exp(weights) in a more stable way
             log_weights_sum = logsumexp(log_weights)
         else:
-            if isinstance(cov, float):
-                log_weights = (
-                    -0.5
-                    / cov
-                    * (
-                        np.einsum("ij,ij->i", conditional_values, conditional_values)[
-                            :, np.newaxis
-                        ]
-                        + np.einsum("ij,ij->i", conditional_data, conditional_data)[
-                            np.newaxis, :
-                        ]
-                        - 2
-                        * np.einsum("ij,kj->ik", conditional_values, conditional_data)
+            if optimize_memory:
+                if isinstance(cov, float):
+                    log_weights = (
+                        -0.5
+                        / cov
+                        * (
+                            np.einsum(
+                                "ij,ij->i", conditional_values, conditional_values
+                            )[:, np.newaxis]
+                            + np.einsum("ij,ij->i", conditional_data, conditional_data)[
+                                np.newaxis, :
+                            ]
+                            - 2
+                            * np.einsum(
+                                "ij,kj->ik", conditional_values, conditional_data
+                            )
+                        )
                     )
-                )
-            elif isinstance(cov, np.ndarray) and len(cov.shape) == 1:
-                log_weights = (
-                    -0.5
-                    * np.einsum(
-                        "ij,j,ij->i", conditional_values, 1 / cov, conditional_values
-                    )[:, np.newaxis]
-                    - 0.5
-                    * np.einsum(
-                        "ij,j,ij->i", conditional_data, 1 / cov, conditional_data
-                    )[np.newaxis, :]
-                    + np.einsum(
-                        "ij,j,kj->ik", conditional_values, 1 / cov, conditional_data
+                elif isinstance(cov, np.ndarray) and len(cov.shape) == 1:
+                    log_weights = (
+                        -0.5
+                        * np.einsum(
+                            "ij,j,ij->i",
+                            conditional_values,
+                            1 / cov,
+                            conditional_values,
+                        )[:, np.newaxis]
+                        - 0.5
+                        * np.einsum(
+                            "ij,j,ij->i", conditional_data, 1 / cov, conditional_data
+                        )[np.newaxis, :]
+                        + np.einsum(
+                            "ij,j,kj->ik", conditional_values, 1 / cov, conditional_data
+                        )
                     )
-                )
-            elif isinstance(cov, np.ndarray) and len(cov.shape) == 2:
-                cov_inv = np.linalg.inv(cov)
-                log_weights = (
-                    -0.5
-                    * np.einsum(
-                        "ij,jk,ik->i", conditional_values, cov_inv, conditional_values
-                    )[:, np.newaxis]
-                    - 0.5
-                    * np.einsum(
-                        "ij,jk,ik->i", conditional_data, cov_inv, conditional_data
-                    )[np.newaxis, :]
-                    + np.einsum(
-                        "ij,jk,lk->il", conditional_values, cov_inv, conditional_data
+                elif isinstance(cov, np.ndarray) and len(cov.shape) == 2:
+                    cov_inv = np.linalg.inv(cov)
+                    log_weights = (
+                        -0.5
+                        * np.einsum(
+                            "ij,jk,ik->i",
+                            conditional_values,
+                            cov_inv,
+                            conditional_values,
+                        )[:, np.newaxis]
+                        - 0.5
+                        * np.einsum(
+                            "ij,jk,ik->i", conditional_data, cov_inv, conditional_data
+                        )[np.newaxis, :]
+                        + np.einsum(
+                            "ij,jk,lk->il",
+                            conditional_values,
+                            cov_inv,
+                            conditional_data,
+                        )
                     )
-                )
+                else:
+                    raise ValueError("`cov` cannot be more than 2D.")
             else:
-                raise ValueError("`cov` cannot be more than 2D.")
+                delta = (
+                    conditional_values[:, np.newaxis, :]
+                    - conditional_data[np.newaxis, ...]
+                )
+                if isinstance(cov, float):
+                    log_weights = -0.5 / cov * np.einsum("ijk,ijk->ij", delta, delta)
+                elif isinstance(cov, np.ndarray) and len(cov.shape) == 1:
+                    log_weights = -0.5 * np.einsum(
+                        "ijk,k,ijk->ij", delta, 1 / cov, delta
+                    )
+                elif isinstance(cov, np.ndarray) and len(cov.shape) == 2:
+                    cov_inv = np.linalg.inv(cov)
+                    log_weights = -0.5 * np.einsum(
+                        "ijk,kl,ijl->ij", delta, cov_inv, delta
+                    )
+                else:
+                    raise ValueError("`cov` cannot be more than 2D.")
 
             log_weights_sum = logsumexp(log_weights, axis=1, keepdims=True)
 
