@@ -227,7 +227,9 @@ class InterpolatedConditionalGaussian:
             edges, weights = self.interpolator(
                 inherently_conditional_values, return_aux=True
             )
-            weights = np.array([float(weight.squeeze()) for weight in weights])
+            weights = np.array([float(weight.squeeze()) for weight in weights]).reshape(
+                -1, 1
+            )
             gaussians = [self.gaussians[edge][0] for edge in edges]
             log_probs = np.zeros((len(gaussians), len(X)), dtype=np.float128)
             for i, gaussian in enumerate(gaussians):
@@ -618,7 +620,9 @@ class InterpolatedConditionalKernelDensity:
             edges, weights = self.interpolator(
                 inherently_conditional_values, return_aux=True
             )
-            weights = np.array([float(weight.squeeze()) for weight in weights])
+            weights = np.array([float(weight.squeeze()) for weight in weights]).reshape(
+                -1, 1
+            )
             kdes = [self.kdes[edge][0] for edge in edges]
             log_probs = np.zeros((len(kdes), len(X)), dtype=np.float128)
             for i, kde in enumerate(kdes):
