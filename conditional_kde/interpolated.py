@@ -24,7 +24,7 @@ class InterpolatedConditionalGaussian:
 
     def __init__(
         self,
-        bandwidth="scott",
+        bandwidth=1.0,
     ):
         if not isinstance(bandwidth, (int, float)):
             raise ValueError("Bandwidth should be a number.")
