@@ -1,0 +1,90 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "conditional_kde"
+version = "0.1.0"
+description = "Conditional Kernel Density Estimation."
+readme = "README.rst"
+license = {text = "MIT"}
+authors = [
+    {name = "David Prelogović", email = "david.prelogovic@gmail.com"},
+]
+maintainers = [
+    {name = "David Prelogović", email = "david.prelogovic@gmail.com"},
+]
+classifiers = [
+    "Development Status :: 2 - Pre-Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Natural Language :: English",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.6",
+    "Programming Language :: Python :: 3.7",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+]
+keywords = ["conditional_kde", "kernel density estimation", "machine learning"]
+requires-python = ">=3.6"
+dependencies = [
+    "numpy",
+    "scipy",
+    "scikit-learn",
+]
+
+[project.urls]
+Homepage = "https://github.com/dprelogo/conditional_kde"
+Repository = "https://github.com/dprelogo/conditional_kde"
+Documentation = "https://conditional-kde.readthedocs.io"
+
+[project.optional-dependencies]
+test = [
+    "pytest>=3",
+]
+dev = [
+    "pytest>=3",
+    "bump2version",
+    "wheel",
+    "watchdog",
+    "flake8",
+    "tox",
+    "coverage",
+    "Sphinx",
+    "twine",
+    "black",
+    "matplotlib",
+]
+
+[tool.setuptools]
+packages = ["conditional_kde"]
+include-package-data = true
+zip-safe = false
+
+[tool.setuptools.package-data]
+"*" = ["*.rst", "*.txt"]
+
+[tool.pytest.ini_options]
+addopts = "--ignore=setup.py"
+testpaths = ["tests"]
+python_files = "test_*.py"
+python_classes = "Test*"
+python_functions = "test_*"
+
+[tool.bumpversion]
+current_version = "0.1.0"
+commit = true
+tag = true
+
+[[tool.bumpversion.files]]
+filename = "pyproject.toml"
+search = 'version = "{current_version}"'
+replace = 'version = "{new_version}"'
+
+[[tool.bumpversion.files]]
+filename = "conditional_kde/__init__.py"
+search = '__version__ = "{current_version}"'
+replace = '__version__ = "{new_version}"'
