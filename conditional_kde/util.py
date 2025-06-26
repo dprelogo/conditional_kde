@@ -1,7 +1,9 @@
 """Important utilities."""
 import itertools
+
 import numpy as np
 from scipy.interpolate import RegularGridInterpolator
+
 # Removed import of private scipy function _ndim_coords_from_arrays
 
 
@@ -196,7 +198,7 @@ class Interpolator(RegularGridInterpolator):
             raise ValueError(f"Method {method} is not defined")
 
         ndim = len(self.grid)
-        
+
         # Replace _ndim_coords_from_arrays with explicit handling
         if isinstance(xi, np.ndarray):
             if xi.ndim == 1:
@@ -205,7 +207,7 @@ class Interpolator(RegularGridInterpolator):
         else:
             # xi is a tuple/list of coordinate arrays
             xi = np.column_stack([np.asarray(x).ravel() for x in xi])
-        
+
         if xi.shape[-1] != len(self.grid):
             raise ValueError(
                 f"The requested sample points xi have dimension "

@@ -14,10 +14,10 @@ To use Conditional KDE in a project::
 
     kde_intp = InterpolatedConditionalKernelDensity()
     kde_intp.fit(
-        data, 
-        inherent_features = ["z"], 
-        features = ["x", "y"], 
-        interpolation_points = {"z": z}, 
+        data,
+        inherent_features = ["z"],
+        features = ["x", "y"],
+        interpolation_points = {"z": z},
         interpolation_method = "linear",
     )
 

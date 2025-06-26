@@ -1,8 +1,9 @@
-import pytest
+from math import isclose
 
 import numpy as np
+import pytest
+
 from conditional_kde.util import DataWhitener, Interpolator
-from math import isclose
 
 
 @pytest.fixture(scope="module")

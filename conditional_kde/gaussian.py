@@ -1,16 +1,16 @@
 """Module containing Gaussian versions of the Conditional KDE."""
 
 import numpy as np
-from scipy.optimize import minimize_scalar
 from scipy.special import logsumexp
+from sklearn.model_selection import GridSearchCV
 from sklearn.neighbors import KernelDensity
-from sklearn.model_selection import train_test_split, GridSearchCV
+
 from .util import DataWhitener
 
 
 class ConditionalGaussian:
     """Conditional Gaussian. Makes a simple Gaussian fit to the data, allowing for conditioning.
-    
+
     Args:
         bandwidth (float): allows for the additional smoothing/shrinking of the covariance.
             In most cases, it should be left as 1.
@@ -222,7 +222,7 @@ class ConditionalGaussian:
             if not all(v.ndim == 1 for v in conditionals.values()):
                 raise ValueError("For vectorized conditionals, all should be 1D.")
             lengths = [len(v) for v in conditionals.values()]
-            if not all(l == lengths[0] for l in lengths):
+            if not all(length == lengths[0] for length in lengths):
                 raise ValueError(
                     "For vectorized conditionals, all should have the same length."
                 )
@@ -361,9 +361,9 @@ class ConditionalGaussianKernelDensity:
         self.algorithm = whitening_algorithm
 
         if not isinstance(bandwidth, (int, float)):
-            if not bandwidth in ["scott", "optimized"]:
+            if bandwidth not in ["scott", "optimized"]:
                 raise ValueError(
-                    f"""Bandwidth should be a number, "scott" or "optimized", 
+                    f"""Bandwidth should be a number, "scott" or "optimized",
                     but has value {bandwidth} and type {type(bandwidth).__name__}."""
                 )
         self.bandwidth = bandwidth
@@ -730,7 +730,7 @@ class ConditionalGaussianKernelDensity:
             if not all(v.ndim == 1 for v in conditionals.values()):
                 raise ValueError("For vectorized conditionals, all should be 1D.")
             lengths = [len(v) for v in conditionals.values()]
-            if not all(l == lengths[0] for l in lengths):
+            if not all(length == lengths[0] for length in lengths):
                 raise ValueError(
                     "For vectorized conditionals, all should have the same length."
                 )

@@ -2,6 +2,7 @@
 
 import numpy as np
 from scipy.special import logsumexp
+
 from .gaussian import ConditionalGaussian, ConditionalGaussianKernelDensity
 from .util import Interpolator
 
@@ -91,12 +92,12 @@ class InterpolatedConditionalGaussian:
             data = data.reshape((np.prod(number_of_samples),) + data.shape[-2:])
         elif isinstance(data, list):
             # only calculating N, leaving main checks for later
-            def list_depth(l, ns=[]):
-                ns.append(len(l))
-                if isinstance(l[0], list):
-                    ns, nf = list_depth(l[0], ns)
-                elif isinstance(l[0], np.ndarray):
-                    nf = l[0].shape[-1]
+            def list_depth(lst, ns=[]):
+                ns.append(len(lst))
+                if isinstance(lst[0], list):
+                    ns, nf = list_depth(lst[0], ns)
+                elif isinstance(lst[0], np.ndarray):
+                    nf = lst[0].shape[-1]
                 else:
                     raise ValueError(
                         "`data` of type `list` should not contain anything else "
@@ -208,7 +209,7 @@ class InterpolatedConditionalGaussian:
             inherently conditional dimensions by `inherent_conditionals`
             and other dimensions by `conditional_features`.
         """
-        N = len(self.inherent_features)
+        # N = len(self.inherent_features)  # Not used in this method
 
         if not isinstance(inherent_conditionals, dict):
             raise TypeError(
@@ -402,9 +403,9 @@ class InterpolatedConditionalKernelDensity:
         self.algorithm = whitening_algorithm
 
         if not isinstance(bandwidth, (int, float)):
-            if not bandwidth in ["scott", "optimized"]:
+            if bandwidth not in ["scott", "optimized"]:
                 raise ValueError(
-                    f"""Bandwidth should be a number, "scott" or "optimized", 
+                    f"""Bandwidth should be a number, "scott" or "optimized",
                     but has value {bandwidth} and type {type(bandwidth).__name__}."""
                 )
         self.bandwidth = bandwidth
@@ -480,12 +481,12 @@ class InterpolatedConditionalKernelDensity:
             data = data.reshape((np.prod(number_of_samples),) + data.shape[-2:])
         elif isinstance(data, list):
             # only calculating N, leaving main checks for later
-            def list_depth(l, ns=[]):
-                ns.append(len(l))
-                if isinstance(l[0], list):
-                    ns, nf = list_depth(l[0], ns)
-                elif isinstance(l[0], np.ndarray):
-                    nf = l[0].shape[-1]
+            def list_depth(lst, ns=[]):
+                ns.append(len(lst))
+                if isinstance(lst[0], list):
+                    ns, nf = list_depth(lst[0], ns)
+                elif isinstance(lst[0], np.ndarray):
+                    nf = lst[0].shape[-1]
                 else:
                     raise ValueError(
                         "`data` of type `list` should not contain anything else "
@@ -599,7 +600,7 @@ class InterpolatedConditionalKernelDensity:
             inherently conditional dimensions by `inherent_conditionals`
             and other dimensions by `conditional_features`.
         """
-        N = len(self.inherent_features)
+        # N = len(self.inherent_features)  # Not used in this method
 
         if not isinstance(inherent_conditionals, dict):
             raise TypeError(
