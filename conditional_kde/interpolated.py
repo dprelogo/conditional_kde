@@ -220,7 +220,7 @@ class InterpolatedConditionalGaussian:
             )
 
         inherently_conditional_values = np.array(
-            [inherent_conditionals[k] for k in self.inherent_features], dtype=np.float32
+            [inherent_conditionals[k] for k in self.inherent_features], dtype=np.float64
         )
 
         if self.interpolator.method == "linear":
@@ -288,7 +288,7 @@ class InterpolatedConditionalGaussian:
             )
 
         inherently_conditional_values = np.array(
-            [inherent_conditionals[k] for k in self.inherent_features], dtype=np.float32
+            [inherent_conditionals[k] for k in self.inherent_features], dtype=np.float64
         )
 
         if isinstance(random_state, np.random.RandomState):
@@ -326,12 +326,11 @@ class InterpolatedConditionalGaussian:
             idx = rs.choice(len(all_samples), n_samples, p=all_weights)
             samples = all_samples[idx]
             if keep_dims:
-                return np.stack(
+                return np.hstack(
                     [
-                        np.broadcast_to(inherently_conditional_values, (n_samples, N)),
                         samples,
-                    ],
-                    axis=-1,
+                        np.broadcast_to(inherently_conditional_values, (n_samples, N)),
+                    ]
                 )
             else:
                 return samples
@@ -349,12 +348,11 @@ class InterpolatedConditionalGaussian:
             n_samples = len(samples)
 
             if keep_dims:
-                np.stack(
+                return np.hstack(
                     [
-                        np.broadcast_to(inherently_conditional_values, (n_samples, N)),
                         samples,
-                    ],
-                    axis=-1,
+                        np.broadcast_to(inherently_conditional_values, (n_samples, N)),
+                    ]
                 )
             else:
                 return samples
@@ -613,7 +611,7 @@ class InterpolatedConditionalKernelDensity:
             )
 
         inherently_conditional_values = np.array(
-            [inherent_conditionals[k] for k in self.inherent_features], dtype=np.float32
+            [inherent_conditionals[k] for k in self.inherent_features], dtype=np.float64
         )
 
         if self.interpolator.method == "linear":
@@ -681,7 +679,7 @@ class InterpolatedConditionalKernelDensity:
             )
 
         inherently_conditional_values = np.array(
-            [inherent_conditionals[k] for k in self.inherent_features], dtype=np.float32
+            [inherent_conditionals[k] for k in self.inherent_features], dtype=np.float64
         )
 
         if isinstance(random_state, np.random.RandomState):
@@ -719,12 +717,11 @@ class InterpolatedConditionalKernelDensity:
             idx = rs.choice(len(all_samples), n_samples, p=all_weights)
             samples = all_samples[idx]
             if keep_dims:
-                return np.stack(
+                return np.hstack(
                     [
-                        np.broadcast_to(inherently_conditional_values, (n_samples, N)),
                         samples,
-                    ],
-                    axis=-1,
+                        np.broadcast_to(inherently_conditional_values, (n_samples, N)),
+                    ]
                 )
             else:
                 return samples
@@ -742,12 +739,11 @@ class InterpolatedConditionalKernelDensity:
             n_samples = len(samples)
 
             if keep_dims:
-                np.stack(
+                return np.hstack(
                     [
-                        np.broadcast_to(inherently_conditional_values, (n_samples, N)),
                         samples,
-                    ],
-                    axis=-1,
+                        np.broadcast_to(inherently_conditional_values, (n_samples, N)),
+                    ]
                 )
             else:
                 return samples
