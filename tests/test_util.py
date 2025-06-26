@@ -48,4 +48,5 @@ def test_whitener(random_sample):
 def test_interpolator(values, grid):
     interp = Interpolator(list(grid.values()), values, method="linear")
     xi = np.array([0.5, -0.1, 0.7])
-    assert isclose(sum(xi), interp(xi, return_aux=False))
+    result = interp(xi, return_aux=False)
+    assert isclose(sum(xi), result.item())

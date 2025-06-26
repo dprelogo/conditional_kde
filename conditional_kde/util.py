@@ -2,7 +2,7 @@
 import itertools
 import numpy as np
 from scipy.interpolate import RegularGridInterpolator
-from scipy.interpolate.interpnd import _ndim_coords_from_arrays
+# Removed import of private scipy function _ndim_coords_from_arrays
 
 
 class DataWhitener:
@@ -196,7 +196,16 @@ class Interpolator(RegularGridInterpolator):
             raise ValueError(f"Method {method} is not defined")
 
         ndim = len(self.grid)
-        xi = _ndim_coords_from_arrays(xi, ndim=ndim)
+        
+        # Replace _ndim_coords_from_arrays with explicit handling
+        if isinstance(xi, np.ndarray):
+            if xi.ndim == 1:
+                # 1D array: interpret as single point with ndim coordinates
+                xi = xi.reshape(1, -1)
+        else:
+            # xi is a tuple/list of coordinate arrays
+            xi = np.column_stack([np.asarray(x).ravel() for x in xi])
+        
         if xi.shape[-1] != len(self.grid):
             raise ValueError(
                 f"The requested sample points xi have dimension "
@@ -216,7 +225,16 @@ class Interpolator(RegularGridInterpolator):
                         f"One of the requested xi is out of bounds in dimension {i}"
                     )
 
-        indices, norm_distances, out_of_bounds = self._find_indices(xi.T)
+        # In newer scipy versions, _find_indices only returns 2 values
+        find_indices_result = self._find_indices(xi.T)
+        if len(find_indices_result) == 2:
+            indices, norm_distances = find_indices_result
+            # Calculate out_of_bounds manually
+            out_of_bounds = np.zeros(xi.shape[0], dtype=bool)
+            for i, (p, grid) in enumerate(zip(xi.T, self.grid)):
+                out_of_bounds |= (p < grid[0]) | (p > grid[-1])
+        else:
+            indices, norm_distances, out_of_bounds = find_indices_result
         if method == "linear":
             result, edges, weights = self._evaluate_linear(
                 indices, norm_distances, out_of_bounds
