@@ -178,7 +178,7 @@ class ConditionalGaussian:
                     "All conditional_features should be in features. If you haven't "
                     "specified features, pick integers from `[0, 1, ..., n_features - 1]`."
                 )
-            if len(conditional_features) == self.features:
+            if len(conditional_features) == len(self.features):
                 raise ValueError(
                     "Doesn't make much sense to condition on all features. "
                     "Probability of that is 1."
@@ -686,7 +686,7 @@ class ConditionalGaussianKernelDensity:
                     "All conditional_features should be in features. If you haven't "
                     "specified features, pick integers from `[0, 1, ..., n_features - 1]`."
                 )
-            if len(conditional_features) == self.features:
+            if len(conditional_features) == len(self.features):
                 raise ValueError(
                     "Doesn't make much sense to condition on all features. "
                     "Probability of that is 1."
