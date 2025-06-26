@@ -1,11 +1,11 @@
-pip==19.2.3
+pip>=21.0
 bump2version==0.5.11
-wheel==0.33.6
+wheel>=0.40.0
 watchdog==6.0.0
 flake8==7.3.0
 tox==3.14.0
 coverage==7.9.1
-Sphinx==1.8.5
+Sphinx>=4.0.0
 twine==6.1.0
 
 pytest==6.2.4
