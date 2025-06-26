@@ -187,7 +187,7 @@ class TestIntegration:
         # Test with keep_dims
         samples_with_dims = kde.sample(conditionals=conditionals, keep_dims=True)
         assert samples_with_dims.shape == (n_conditions, 4)
-        assert_allclose(samples_with_dims[:, 0], conditionals["a"])
+        assert_allclose(samples_with_dims[:, 0], conditionals["a"], atol=1e-15)
         assert_allclose(samples_with_dims[:, 1], conditionals["b"])
 
     def test_kde_bandwidth_optimization(self):

@@ -232,7 +232,9 @@ class InterpolatedConditionalGaussian:
                 -1, 1
             )
             gaussians = [self.gaussians[edge][0] for edge in edges]
-            log_probs = np.zeros((len(gaussians), len(X)), dtype=np.float128)
+            # Use highest precision float available on the platform
+            float_dtype = np.longdouble if hasattr(np, "longdouble") else np.float64
+            log_probs = np.zeros((len(gaussians), len(X)), dtype=float_dtype)
             for i, gaussian in enumerate(gaussians):
                 log_probs[i, :] = gaussian.score_samples(X, conditional_features)
             return logsumexp(log_probs, axis=0, b=weights)
@@ -623,7 +625,9 @@ class InterpolatedConditionalKernelDensity:
                 -1, 1
             )
             kdes = [self.kdes[edge][0] for edge in edges]
-            log_probs = np.zeros((len(kdes), len(X)), dtype=np.float128)
+            # Use highest precision float available on the platform
+            float_dtype = np.longdouble if hasattr(np, "longdouble") else np.float64
+            log_probs = np.zeros((len(kdes), len(X)), dtype=float_dtype)
             for i, kde in enumerate(kdes):
                 log_probs[i, :] = kde.score_samples(X, conditional_features)
             return logsumexp(log_probs, axis=0, b=weights)
