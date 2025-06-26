@@ -1,0 +1,9 @@
+# Documentation build requirements
+sphinx>=4.0.0
+furo
+autoclasstoc
+nbsphinx
+IPython
+numpy
+scipy
+scikit-learn
