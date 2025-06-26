@@ -8,6 +8,7 @@ on:
   schedule:
     # Run tests on a schedule to catch dependency issues
     - cron: '0 0 * * 0'  # Weekly on Sunday
+  workflow_call:  # Allow this workflow to be called by other workflows
 
 jobs:
   lint:
@@ -30,7 +31,7 @@ jobs:
         # stop the build if there are Python syntax errors or undefined names
         flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
         # exit-zero treats all errors as warnings. The GitHub editor is 127 chars wide
-        flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
+        flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics --extend-ignore=E203
 
     - name: Format with black
       run: |
@@ -43,13 +44,7 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
-        python-version: ['3.8', '3.9', '3.10', '3.11', '3.12']
-        exclude:
-          # Python 3.6 and 3.7 are EOL, but if you need them:
-          # - os: windows-latest
-          #   python-version: '3.6'
-          # - os: macos-latest
-          #   python-version: '3.6'
+        python-version: ['3.9', '3.10', '3.11', '3.12']
 
     steps:
     - uses: actions/checkout@v4
