@@ -1,4 +1,5 @@
 """Tests for edge cases and error conditions to improve coverage"""
+
 import numpy as np
 import pytest
 
