@@ -2,7 +2,7 @@
 
 __author__ = """David Prelogović"""
 __email__ = "david.prelogovic@gmail.com"
-__version__ = "0.1.0"
+__version__ = "0.1.1"
 
 from .gaussian import ConditionalGaussian, ConditionalGaussianKernelDensity
 from .interpolated import (
