@@ -43,9 +43,61 @@ jobs:
         git config --local user.email "action@github.com"
         git config --local user.name "GitHub Action"
 
+    - name: Get current version
+      id: current_version
+      run: |
+        echo "version=$(grep 'current_version' setup.cfg | cut -d'=' -f2 | tr -d ' ')" >> $GITHUB_OUTPUT
+
+    - name: Calculate new version
+      id: new_version
+      run: |
+        current="${{ steps.current_version.outputs.version }}"
+        version_type="${{ github.event.inputs.version_type }}"
+
+        # Parse current version
+        IFS='.' read -r major minor patch <<< "$current"
+
+        # Remove any pre-release suffix for calculation
+        patch="${patch%%-*}"
+
+        # Calculate new version based on type
+        case "$version_type" in
+          major)
+            new_version="$((major + 1)).0.0"
+            ;;
+          minor)
+            new_version="${major}.$((minor + 1)).0"
+            ;;
+          patch)
+            new_version="${major}.${minor}.$((patch + 1))"
+            ;;
+          prepatch)
+            new_version="${major}.${minor}.$((patch + 1))-rc.0"
+            ;;
+          preminor)
+            new_version="${major}.$((minor + 1)).0-rc.0"
+            ;;
+          premajor)
+            new_version="$((major + 1)).0.0-rc.0"
+            ;;
+          prerelease)
+            # Handle prerelease increment
+            if [[ "$current" == *"-rc."* ]]; then
+              pre_num="${current##*-rc.}"
+              base="${current%-rc.*}"
+              new_version="${base}-rc.$((pre_num + 1))"
+            else
+              new_version="${current}-rc.0"
+            fi
+            ;;
+        esac
+
+        echo "new_version=${new_version}" >> $GITHUB_OUTPUT
+        echo "Bumping from ${current} to ${new_version}"
+
     - name: Bump version
       run: |
-        bump2version ${{ github.event.inputs.version_type }}
+        bump2version ${{ github.event.inputs.version_type }} --new-version ${{ steps.new_version.outputs.new_version }}
 
     - name: Push changes
       run: |
