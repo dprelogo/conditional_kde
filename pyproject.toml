@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "conditional_kde"
-version = "0.1.1"
+version = "0.1.2"
 description = "Conditional Kernel Density Estimation."
 readme = "README.rst"
 license = {text = "MIT"}
@@ -72,7 +72,7 @@ python_classes = "Test*"
 python_functions = "test_*"
 
 [tool.bumpversion]
-current_version = "0.1.1"
+current_version = "0.1.2"
 commit = true
 tag = true
 
