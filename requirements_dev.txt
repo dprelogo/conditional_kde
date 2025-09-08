@@ -6,7 +6,7 @@ flake8==7.3.0
 tox==4.27.0
 coverage==7.10.6
 Sphinx>=4.0.0
-twine==6.1.0
+twine==6.2.0
 
 pytest>=7.0.0
 pytest-cov>=4.0.0,<7.0.0
