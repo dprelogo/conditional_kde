@@ -1,5 +1,5 @@
 # Documentation build requirements
-sphinx>=4.0.0
+sphinx>=7.4.7
 furo
 autoclasstoc
 nbsphinx
